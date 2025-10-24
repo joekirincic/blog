@@ -1,0 +1,36 @@
+---
+title: "Welcome To My Blog"
+author: "Joe Kirincic"
+date: "2025-09-24"
+categories: [news]
+---
+
+![](thumbnail.jpg)
+
+Welcome to my corner of the web. I like to think about a lot of things, but my memory's crap, so I'm putting this blog together to refine and organize my thoughts. I have a lot of interests, but I imagine most posts will cover the following.
+
+### Major themes
+
+- R programming
+- Data engineering
+- Statistics/Machine Learning
+- Potential projects
+
+### R programming
+
+I started programming with R in 2018. Python was my first programming language, and while I still enjoy working with Python, something about R has always clicked with me in a way that other programming languages haven't. I use R to solve all kinds of problems. Building a predictive model? R. Building production web services? R. Procrastinating on something I'm supposed to be doing? R. So sometimes I'm going to post about things I've done with R.
+
+### Data Engineering
+
+Other times I'm going to write about this thing called data engineering. I love it, but I also kind of hate it. Data engineering is so interesting when I'm thinking about it as the rigorous orchestration of the curation of facts; it's so much less interesting when I have to think about why my Spark job is failing. There's value in writing about both, especially the latter. If I figure out a nasty technical problem, I would prefer to only do so once; then, if it ever shows itself again, I can refer to a post instead of rediscovering the answer all over again.
+
+### Statistics/Machine Learning
+
+I also intend to write about mathy things. Most of my working career has been an attempt to dive deeper into the math powering statistics and machine learning, but my job always had these IT-ish problems that needed to be handled first. By taking the time to refine my understanding of statistics and machine learning, I can be a better practitioner of both. Maybe. Hopefully. We'll see.
+
+### Potential Projects
+
+Often I get an idea for a project, maybe an R package or an app, and I add it to lists of projects that grow so much faster than I'm able to handle. It dawns on me that I don't have to tackle these projects all by myself; I can pitch the ideas to smart people looking for their next hobby project in the form of blog posts. Best case is someone finds a post and decides to see it through, and the world will be better for it. Worst case is it gets people thinking about the idea, and eventually someone dreams up an even better version of the idea than I came up with. Sounds like a good deal either way.
+
+
+So that's what you can expect to find here. As long as one of us finds something valuable in here, I'll chalk it up as a win. 
