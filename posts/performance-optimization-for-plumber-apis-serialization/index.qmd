@@ -4,14 +4,14 @@ description: "A series of posts about making your Plumber APIs production ready.
 author: "Joe Kirincic"
 date: "2025-10-04"
 categories: [R,web,performance]
-image: ""
+image: "serialization-thumbnail.jpg"
 image-alt: ""
 code-annotations: below
 ---
 
 ### Introduction
 
-This is the first in a series of posts about improving the performance of REST APIs using the {plumber2} R package. API performance is a complex topic that can't be covered in one go, so we're going to break things up into the following topics.
+This is the first in a series of posts about improving the performance of REST APIs using the `{plumber2}` R package. API performance is a complex topic that can't be covered in one go, so we're going to break things up into the following topics.
 
 -   Serialization
 -   Async execution
