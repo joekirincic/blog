@@ -1,0 +1,5 @@
+# Quarto profile for rendering draft posts
+# Usage: quarto render --profile drafts
+
+website:
+  drafts: true

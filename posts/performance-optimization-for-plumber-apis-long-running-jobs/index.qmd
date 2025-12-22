@@ -1,0 +1,389 @@
+---
+title: "Performance Optimization for Plumber APIs: Long Running Jobs"
+description: "Learn strategies to improve API performance where long running tasks are involved."
+author: "Joe Kirincic"
+date: "2025-12-08"
+categories: [R,web,performance]
+image: "thumbnail.jpg"
+image-alt: ""
+---
+
+## Introduction
+
+We're back on the API performance grind. This post covers two patterns for handling long-running jobs, polling and webhooks. We'll show basic implementations of each and provide suggestions of when to use them. A Github repo containing complete code examples can be found [here](https://github.com/joekirincic/performance-optimization-for-plumber-apis). When I say "long-running job", think along the lines of training machine learning models or performing batch ETL jobs. These kinds of tasks take a while to complete, and as we'll see, the techniques we've covered earlier in this series aren't sufficient to handle them.
+
+## A naive implementation
+
+We're going to create an app that serves predictions from an ML model. The app will have two endpoints, one for training the ML model, and the other for getting predictions from the model given new data. This is implemented in the code below.
+
+```{r, eval=FALSE}
+library(plumber2)
+library(mirai)
+library(promises)
+
+mirai::daemons(4L, dispatcher = TRUE)
+
+model_train <- function(data) {
+  data <- tidyr::drop_na(data)
+  model <- lm(
+    body_mass_g ~ species +
+      island +
+      bill_length_mm +
+      bill_depth_mm +
+      flipper_length_mm +
+      sex +
+      year,
+    data = data
+  )
+  saveRDS(model, file = here::here("model.rds"))
+  TRUE
+}
+
+model_cache <- memoise::cache_filesystem(
+  here::here(".rcache")
+)
+
+model_load <- function() {
+  readRDS(file = here::here("model.rds"))
+}
+
+model_load_memoised <- memoise::memoise(model_load, cache = model_cache)
+
+model_predict <- function(model, data) {
+  model <- model_load_memoised()
+  predict(model, newdata = data)
+}
+
+#* Train ML model.
+#* @post /train
+#* @async
+function() {
+  payload <- model_train(palmerpenguins::penguins)
+  payload
+}
+#* @then
+function(server, response) {
+  memoise::forget(model_load_memoised)
+  model_load_memoised()
+  response$body <- list(
+    message = "Task submitted."
+  )
+  Next
+}
+
+#* Predict using ML model.
+#* @post /predict
+function(body) {
+  data <- body$data
+  print(data)
+  print(
+    model_load_memoised()
+  )
+  model_predict(
+    model = model_load_memoised(),
+    data = data
+  )
+}
+
+```
+
+This app is pretty simple, but the code involving model loading and the `{memoise}` package deserves some explanation. Since our `/train` endpoint is async, we need our code for managing the model to be something that can work with multiple R processes. Many machine learning models can't be returned from a `mirai` because they contain `externalptr` objects that can't be shared between R sessions, so we'll write the trained model to disk. This will ensure that our API can access the new model while it's still running. But loading the model on each call to the `/predict` endpoint isn't efficient, so we introduce some simple caching of the model loading via the `{memoise}` package. We inform the app to drop the cached model whenever the training job completes, so the next time the `predict` endpoint gets called, the app will load the new model and cache it for subsequent requests. All that said, there's a number of issues with this implementation, but our focus is on the use of async for handling the long-running task.
+
+## Async isn't the answer here
+
+After learning some async programming, I thought async was the answer to long-running jobs. I learned the hard way that this isn't the case[^1]. There are a couple of issues with this approach. One reason is that, once the task is issued to a background process, that background process has no way to communicate progress to the client. We're using a simpler linear regression model for this example, and that finishes very quickly. But imagine we were training some gnarly neural network. The training run could be four minutes in–or four hours–and the client would have no idea whether the job is fitting the model or still preparing the data. This opaqueness can create inefficiencies between web services.
+
+[^1]: It sucked; I recommend learning from this post instead.
+
+Another reason is that clients impose timeout limits on requests to help them drop requests that have probably failed. Many ML models will have training times long enough to exceed these thresholds. The impact is that clients will decide our task has failed, even if it's working just fine. This miscommunication isn't terrible on its own, but if we consider the fact that clients often have retry logic in the event of an error, the situation becomes more problematic. Training machine learning models is computationally intensive, and if you end up with a bunch of extraneous training runs hogging your available CPU, the rest of your API will suffer performance degradation if not complete unresponsiveness. Not good. When integrating with other web services, we often don't have control over these timeouts, so we need another solution. The first one is what's called the polling pattern.
+
+## The Polling Pattern
+
+The polling pattern, or the [async request-reply pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/async-request-reply), is one solution REST developers have come up with to handle long running tasks. With the polling pattern, you take your endpoint and turn it into four: one to accept the job, one to check status, one to retrieve results, and one to cancel. Here's how they work together.
+
+```{r, eval=FALSE}
+
+library(plumber2)
+library(mirai)
+library(promises)
+
+daemons(4L, dispatcher = TRUE)
+
+tasks <- new.env()
+
+# model_cache, model_train(), model_load(), model_load_memoised(), and 
+# model_predict() remain unchanged from the previous example. See repo
+# for the complete code.
+
+#* Train ML model.
+#* @post /train
+function(response) {
+  id <- uuid::UUIDgenerate(n = 1)
+  location <- paste0("/train/", id, "/status")
+  task <- list(
+    id = id,
+    created = Sys.time(),
+    status = "queued",
+    task = NULL,
+    error = NULL
+  )
+  tasks[[id]] <- task
+  tasks[[id]][["task"]] <- mirai(
+    {
+      result <- model_train(palmerpenguins::penguins)
+      result
+    },
+    model_train = model_train
+  )
+  tasks[[id]][["status"]] <- "running"
+  response$status <- 202L
+  response$set_header("Location", location)
+  response$set_header("Retry-After", 5)
+  response$body <- list(
+    message = "Task submitted."
+  )
+  response$Next
+}
+
+#* Query status of model training run.
+#* @get /train/<id>/status
+function(id, response) {
+  task_exists_ind <- id %in% names(tasks)
+  if (!task_exists_ind) {
+    response$status <- 404L
+    response$body <- list(message = paste0("Task ID ", id, " not found."))
+    return(response$Next)
+  }
+  task <- tasks[[id]]
+  if (task$status == "running" & unresolved(task$task)) {
+    # Logic for when the task is still running.
+    return(response$Next)
+  }
+  if (
+    task$status == "running" &
+      !unresolved(task$task) &
+      is_mirai_error(task$task$data)
+  ) {
+    # Logic for when the task fails.
+    return(response$Next)
+  }
+  if (
+    task$status == "running" &
+      !unresolved(task$task) &
+      !is_mirai_error(task$task$data)
+  ) {
+    task$status <- "completed"
+    task$result_url <- paste0("/train/", id, "/result")
+    tasks[[id]] <- task
+    memoise::forget(model_load_memoised)
+    out <- list(
+      id = id,
+      created = task$created,
+      status = task$status,
+      result_url = task$result_url
+    )
+    response$status <- 200L
+    response$body <- out
+    return(response$Next)
+  }
+  if (task$status == "cancelled") {
+    # Logic for when the task is cancelled
+    return(response$Next)
+  }
+}
+
+#* Get the result of the training run
+#* @get /train/<id>/result
+function(id, response) {
+  task_exists_ind <- id %in% names(tasks)
+  if (!task_exists_ind) {
+    response$status <- 404L
+    response$body <- jsonlite::toJSON(
+      list(message = paste0("Task ID ", id, " not found."))
+    )
+    return(response$Next)
+  }
+  task <- tasks[[id]]
+  out <- list(
+    id = task$id,
+    created = task$created,
+    result = task$task$data
+  )
+  response$status <- 200L
+  response$body <- out
+  return(response$Next)
+}
+
+#* Cancel a training run.
+#* @delete /train/<id>
+function(id, response) {
+  task_exists_ind <- id %in% names(tasks)
+  if (!task_exists_ind) {
+    response$status <- 404L
+    response$body <- jsonlite::toJSON(
+      list(message = paste0("Task ID ", id, " not found."))
+    )
+    return(response$Next)
+  }
+  task <- tasks[[id]]
+  stop_mirai(task$task)
+  task$status <- "cancelled"
+  tasks[[id]] <- task
+  out <- list(
+    id = task$id,
+    created = task$created,
+    status = task$status
+  )
+  response$status <- 200L
+  response$body <- out
+  return(response$Next)
+}
+
+#* Predict using ML model.
+#* @post /predict
+function(body) {
+  # Implementation is the same, and is omitted for brevity.
+}
+
+```
+
+The first endpoint is responsible for two things. First, it validates that the request contains valid inputs for a training job. If any of the inputs aren't valid, we want to stop any further processing and inform the client so we don't waste resources. Second, it launches the task, and informs the client whether or not launching the task was successful. There's actually an HTTP code specifically for this kind of "job submitted successfully" thing, 202. The endpoint also sets two headers on the response, "Location" and "Retry-After". The former tells the client where to ask for updates about the task, and the latter instructs the client at what rate they should ping the status URL. The "Retry-After" header is important when you have an API that services a lot of traffic. If you have a 1000 users and each user is pinging a status URL 1000 times a second, your API's going to feel it in the bytes[^2].
+
+[^2]: That said, there are clever ways of handling this additional overhead that are beyond the scope of this post. Interested readers should look into things like batching client updates.
+
+The second and third endpoints are simple GETs where users can ask about the status of a task and get the task result, respectively. The second, though simple, this is where you can really improve the client experience. Before, when we just fired off an async task and returned a promise, the client had no idea of the task's progress; now, we can provide more granular detail about where the task is in its lifecycle. In our example we simply indicate whether a task is queued, running, completed, or cancelled, but you could imagine including attributes in the response like, "stage: feature prep" or "progress: 20%". This kind of information is helpful for clients, enabling them to more strategically leverage your API.
+
+The fourth endpoint allows the client to cancel a long-running task. Whereas the status endpoint improves the client experience, the cancel endpoint improves the server experience. With our original API, once we fired off an async task, we had no means of cancelling it if the client no longer needed it. This results in wasted computation and resources. With the polling pattern, clients can tell us to cancel expensive operations that are no longer needed, improving resource utilization.
+
+All of this sounds smart and effective, so why isn't this the only solution we're covering? The polling pattern is an improvement, but it's not without cons. One is that the polling pattern adds some latency to your long-running tasks. If the client can only poll every 5 seconds but your task finishes in 6 seconds, then the task takes a total of 10 seconds roundtrip because the client has to wait an additional 4 seconds to retrieve the result. To minimize added latency, understand the typical execution times of your long-running tasks and set the polling interval accordingly. Another is that the status endpoint introduces additional computational overhead on your API. Clients want the results of their tasks as soon as possible, and if you don't tell them otherwise, they will poll for status updates aggressively. Recall that R is single threaded, and that little things add up. An endpoint that completes in 1 millisecond is fast, but hit it with a 1000 requests and now that fast endpoint is taking a whole second to process them all. Like all of the good ideas we discuss in this series, they only work as part of a good plan. Be strategic about where you implement the polling pattern. Speaking of good ideas, we have one more solution to cover.
+
+## Webhooks
+
+Webhooks are an event-driven strategy for communicating with other web services. The idea is that, when the client requests some work to be done, it also provides a URL for the server to post the task result to when the task is complete. The client no longer polls for updates about the task because the server is now in charge of delivering the finished result to the client. Webhooks offer an attractive alternative to the polling pattern. Since the server notifies the client as soon as the task is completed, there's no more added latency from polling. By eliminating polling, we also eliminate the overhead polling places on our API, taking some stress off of our application. Sounds like a good deal. So how do we do it? The following is our ML model API refactored to leverage webhooks.
+
+```{r, eval=FALSE}
+
+library(plumber2)
+library(mirai)
+library(promises)
+library(httr2)
+
+daemons(4L, dispatcher = TRUE)
+
+tasks <- new.env()
+
+# model_cache, model_train(), model_load(), model_load_memoised(), and 
+# model_predict() remain unchanged from the previous example. See repo
+# for the complete code.
+
+#* Train ML model.
+#* @post /train
+function(body, response) {
+  callback_url <- body$callback_url
+  if (is.null(callback_url)) {
+	out <- list(error = "callback_url is required")
+    response$status <- 400L
+    response$body <- out
+    return(response$Next)
+  }
+
+  id <- uuid::UUIDgenerate(n = 1)
+  created <- Sys.time()
+
+  task <- list(
+    id = id,
+    created = created,
+    status = "queued",
+    task = NULL
+  )
+
+  tasks[[id]] <- task
+
+  task$task <- mirai(
+    {
+      library(httr2)
+
+      # Logic for model training and for creating the 
+      # webhook request payload is omitted for brevity.
+      
+      tryCatch(
+        {
+          resp <- request(callback_url) |>
+            req_body_json(payload) |>
+            req_headers("Content-Type" = "application/json") |>
+            req_retry(max_tries = 3, backoff = ~2) |>
+            req_perform()
+
+          out <- list(
+            status_code = resp$status_code,
+            body = resp_body_json(resp)
+          )
+          return(out)
+        },
+        error = function(e) {
+          message("Webhook delivery failed: ", e$message)
+        }
+      )
+    },
+    id = id,
+    created = created,
+    callback_url = callback_url,
+    model_train = model_train
+  )
+
+  task$status <- "running"
+  tasks[[id]] <- task
+  out <- list(
+    id = id,
+    created = created,
+    status = "queued",
+    message = "Training job submitted. Results will be sent to callback URL."
+  )
+
+  response$status <- 202L
+  response$body <- out
+  return(response$Next)
+}
+
+#* Cancel a training run.
+#* @delete /train/<id>
+function(id, response) {
+  # Implementation is the same as that for the polling pattern,
+  # and is omitted for brevity.
+}
+
+#* Predict using ML model.
+#* @post /predict
+function(body) {
+  # Implementation is the same, and is omitted for brevity.
+}
+
+```
+
+In a way, the webhook pattern is simpler than the polling pattern. Instead of four endpoints, we just have two. The second one is for cancelling the task and is essentially the same as last time, so not much new there; the real difference is in the mechanics of the first one, the endpoint responsible for submitting the task. Notice how we still handle the model training work inside of a `mirai`, but we also use `{httr2}` to issue a POST request to the client, too. As soon as the model is done training, that request sends the result of the task to the client-provided URL. This is exactly what we mean when we say the webhook is event driven. All the client does is send a request, and the server handles the rest.
+
+As cool as this is, webhooks come with their own drawbacks. While implementing webhooks is easier for us on the server side, it does add complexity to those on the client side. The client needs to implement a new endpoint for itself that our application can send results to. Depending on the web service you're trying to integrate with, this might not be in the cards. If the client is a browser, for example, then this can't be done. Since the server is now POST-ing data to the client, the client also needs to think about authentication so that it doesn't leave itself vulnerable to malicious actors. There's also an issue with the event-driven nature of the webhook. Suppose an error occurs during the lifecycle of the webhook request. Our implementation doesn't include it, but in production, the webhook functionality will usually have logic for handling retries. Even if, after retries, the request still fails, the client has no way of recovering the results of the completed task; in such circumstances, the client has no choice but to issue a new request, thereby creating wasted effort for our application.
+
+## Conclusion
+
+We have some new tools at our disposal, but when should we use them? There are some guidelines we can use to decide.
+
+**Polling Pattern**: use the polling pattern when
+
+-   Firewall restrictions prevent inbound connections. A lot of mobile or private apps only allow outbound traffic to external services. In cases like this, webhooks wouldn't work, but polling does.
+
+-   You don't own the client or can't easily make changes to it. The added complexity webhooks introduce, including backend changes and authentication, may make them a no-go for the client we're integrating with. In these cases, polling is simpler to implement for any client.
+
+-   Updates occur at a high frequency. If our tasks get large amounts of updates, instead of ruthlessly pinging our app for updates, the client can submit requests in batches, thereby controlling the toll polling places on our app.
+
+**Webhook Pattern**: use the webhook pattern when
+
+-   The client is also a server. Think backend-to-backend communication, like one Plumber API talking to another instead of a Plumber API talking to a Shiny app. These are the sorts of clients that can support webhooks.
+
+-   The client needs real-time notifications. Remember how polling adds latency to tasks? This can be a showstopper for applications that need real-time updates. The event-driven nature of webhooks are more suitable for these kinds of applications.
+
+-   Task execution times have high variability. If your task execution times are all over the place, it can make implementing the polling pattern awkward. Setting the `Retry-After` header to a single value can create unnecessary friction inside of your app because tasks that finish faster have to have the same polling interval as tasks that are slower.
+
+-   High volume of concurrent requests. If we have lots of concurrent users submitting tasks, and we use polling, then our application is going to experience spikes in demand from all the simultaneous polling requests. The added overhead from this activity can really hurt an application that already gets a lot of traffic.
+
+With these new strategies, we can tackle a whole slew of problems that were previously difficult or impossible to accomplish. Give them a shot and let me know what you think.

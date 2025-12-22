@@ -1,0 +1,5 @@
+[build]
+  publish = "docs"
+  command = "echo 'Using pre-built site'"
+
+# Branch deploys enabled - drafts branch will deploy to drafts--{site-name}.netlify.app
