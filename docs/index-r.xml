@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss  xmlns:atom="http://www.w3.org/2005/Atom" 
+      xmlns:media="http://search.yahoo.com/mrss/" 
+      xmlns:content="http://purl.org/rss/1.0/modules/content/" 
+      xmlns:dc="http://purl.org/dc/elements/1.1/" 
+      version="2.0">
+<channel>
+<title>Joe Kirincic</title>
+<link>https://joekirincic.com/#category=R</link>
+<atom:link href="https://joekirincic.com/index-r.xml" rel="self" type="application/rss+xml"/>
+<description></description>
+<generator>quarto-1.7.31</generator>
+<lastBuildDate>Mon, 05 Jan 2026 05:00:00 GMT</lastBuildDate>
+<item>
+  <title>Taming gnarly nested data with purrr::modify_tree</title>
+  <dc:creator>Joe Kirincic</dc:creator>
+  <link>https://joekirincic.com/posts/managing-gnarly-nested-data-with-purrr-modify-tree/</link>
+  <description><![CDATA[ A tutorial for using purrr::modify_tree effectively. ]]></description>
+  <category>R</category>
+  <guid>https://joekirincic.com/posts/managing-gnarly-nested-data-with-purrr-modify-tree/</guid>
+  <pubDate>Mon, 05 Jan 2026 05:00:00 GMT</pubDate>
+  <media:content url="https://joekirincic.com/posts/managing-gnarly-nested-data-with-purrr-modify-tree/thumbnail.jpeg" medium="image" type="image/jpeg"/>
+</item>
+<item>
+  <title>Managing AWS services in R with {paws}</title>
+  <dc:creator>Joe Kirincic</dc:creator>
+  <link>https://joekirincic.com/posts/managing-aws-services-in-r-with-paws/</link>
+  <description><![CDATA[ See how the R package {paws} can help you automate AWS workflows. ]]></description>
+  <category>R</category>
+  <category>aws</category>
+  <guid>https://joekirincic.com/posts/managing-aws-services-in-r-with-paws/</guid>
+  <pubDate>Mon, 22 Dec 2025 05:00:00 GMT</pubDate>
+  <media:content url="https://joekirincic.com/posts/managing-aws-services-in-r-with-paws" medium="image"/>
+</item>
+<item>
+  <title>Performance Optimization for Plumber APIs: Long Running Jobs</title>
+  <dc:creator>Joe Kirincic</dc:creator>
+  <link>https://joekirincic.com/posts/performance-optimization-for-plumber-apis-long-running-jobs/</link>
+  <description><![CDATA[ Learn strategies to improve API performance where long running tasks are involved. ]]></description>
+  <category>R</category>
+  <category>web</category>
+  <category>performance</category>
+  <guid>https://joekirincic.com/posts/performance-optimization-for-plumber-apis-long-running-jobs/</guid>
+  <pubDate>Mon, 08 Dec 2025 05:00:00 GMT</pubDate>
+  <media:content url="https://joekirincic.com/posts/performance-optimization-for-plumber-apis-long-running-jobs/thumbnail.jpg" medium="image" type="image/jpeg"/>
+</item>
+<item>
+  <title>Burst Reporting On A Budget</title>
+  <dc:creator>Joe Kirincic</dc:creator>
+  <link>https://joekirincic.com/posts/burst-reporting-on-a-budget/</link>
+  <description><![CDATA[ Creating a burst reporting application using R, Quarto, and Typst. ]]></description>
+  <category>R</category>
+  <guid>https://joekirincic.com/posts/burst-reporting-on-a-budget/</guid>
+  <pubDate>Mon, 24 Nov 2025 05:00:00 GMT</pubDate>
+  <media:content url="https://joekirincic.com/posts/burst-reporting-on-a-budget/thumbnail.jpg" medium="image" type="image/jpeg"/>
+</item>
+<item>
+  <title>Performance Optimization for Plumber APIs: Async</title>
+  <dc:creator>Joe Kirincic</dc:creator>
+  <link>https://joekirincic.com/posts/performance-optimization-for-plumber-apis-async/</link>
+  <description><![CDATA[ How async programming can improve API performance. ]]></description>
+  <category>R</category>
+  <category>web</category>
+  <category>performance</category>
+  <guid>https://joekirincic.com/posts/performance-optimization-for-plumber-apis-async/</guid>
+  <pubDate>Sun, 09 Nov 2025 05:00:00 GMT</pubDate>
+  <media:content url="https://joekirincic.com/posts/performance-optimization-for-plumber-apis-async/thumbnail.jpg" medium="image" type="image/jpeg"/>
+</item>
+<item>
+  <title>Performance Optimization for Plumber APIs: Serialization</title>
+  <dc:creator>Joe Kirincic</dc:creator>
+  <link>https://joekirincic.com/posts/performance-optimization-for-plumber-apis-serialization/</link>
+  <description><![CDATA[ A series of posts about making your Plumber APIs production ready. ]]></description>
+  <category>R</category>
+  <category>web</category>
+  <category>performance</category>
+  <guid>https://joekirincic.com/posts/performance-optimization-for-plumber-apis-serialization/</guid>
+  <pubDate>Sat, 04 Oct 2025 04:00:00 GMT</pubDate>
+  <media:content url="https://joekirincic.com/posts/performance-optimization-for-plumber-apis-serialization/serialization-thumbnail.jpg" medium="image" type="image/jpeg"/>
+</item>
+</channel>
+</rss>
