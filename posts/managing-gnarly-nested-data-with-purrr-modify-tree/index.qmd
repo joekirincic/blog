@@ -4,7 +4,7 @@ description: "A tutorial for using `purrr::modify_tree` effectively."
 author: "Joe Kirincic"
 date: "2026-01-05"
 categories: [R]
-image: ""
+image: "thumbnail.jpeg"
 image-alt: ""
 ---
 
