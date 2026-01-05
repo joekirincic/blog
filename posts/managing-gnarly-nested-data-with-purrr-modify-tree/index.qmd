@@ -1,0 +1,406 @@
+---
+title: "Taming gnarly nested data with `purrr::modify_tree`"
+description: "A tutorial for using `purrr::modify_tree` effectively."
+author: "Joe Kirincic"
+date: "2026-01-05"
+categories: [R]
+image: ""
+image-alt: ""
+---
+
+## Introduction
+
+This post is about a function from the `{purrr}` package called `modify_tree`. After reading, we should all have a better understanding of the following.
+
+1.  What is `modify_tree`, and what does it do?
+2.  What are the arguments `leaf`, `pre`, and `post`, and when should I use each?
+
+## What is `modify_tree`?
+
+Here's what the help page has to say.
+
+> `modify_tree()` allows you to recursively modify a list, supplying functions that either modify each leaf or each node (or both).
+
+Like many other `{purrr}` functions, it's a function for processing lists. But unlike functions like `map` and friends that move through lists iteratively, `modify_tree` traverses its input recursively. That is, it calls itself on successive child nodes until it reaches what are called leaf nodes, elements satisfying some base case. Leaf nodes are determined by a predicate function passed to the `is_node` argument of the function, which defaults to simple lists. So by default, any node that isn't a simple list is considered a leaf node. As it moves through its input, `modify_tree` does what it says on the tin: it modifies nodes. Let's look at a basic example.
+
+```{r, eval=FALSE}
+library(purrr)
+
+some_list <- list(
+	a = 1,
+	b = list(
+		c = 2,
+		d = list(
+			e = 3
+		)
+	),
+)
+
+modify_tree(
+	some_list,
+	leaf = \(x){
+		x + 1
+	}
+)
+
+# Result:
+# <list>
+# ├─a: 2
+# └─b: <list>
+#   ├─c: 3
+#   └─d: <list>
+#     └─e: 4
+```
+
+We take the list `some_list`, and we add 1 to its leaf nodes. The transformation applied to the leaf nodes is passed to the `leaf` argument of `modify_tree`. For those that have done recursive stuff in R before, this might sound a lot like how `base::rapply` works, and you'd be right. In this case, `modify_tree` is equivalent to `rapply`. So why not just use `rapply`? The main reason is that `modify_tree` can modify all the nodes in its input, whereas `rapply` only modifies the leaf nodes[^1]. As we'll see later, this is a really cool feature that makes `modify_tree` a powerful tool for crafting elegant solutions to complex problems.
+
+[^1]: For an enhanced version of `rapply`, look at the package `{rrapply}`.
+
+## Transforming non-leaf nodes with `pre` and `post`
+
+There are two arguments in `modify_tree` that can modify non-leaf nodes called `pre` and `post`. Let's look at what the help file has to say about them.
+
+> **pre**, **post** Functions applied to each node. `pre` is applied on the way "down", i.e. before the leaves are transformed with `leaf`, while `post` is applied on the way "up", i.e. after the leaves are transformed.
+
+While this is helpful, I still found this definition a little unclear, so let's look at the source code of `modify_tree` as well to get a more complete picture.
+
+```{r, eval=FALSE}
+function (x, ..., leaf = identity, is_node = NULL, pre = identity, 
+    post = identity) 
+{
+    check_dots_empty()
+    leaf <- rlang::as_function(leaf)
+    is_node <- as_is_node(is_node)
+    post <- rlang::as_function(post)
+    pre <- rlang::as_function(pre)
+    worker <- function(x) {
+        if (is_node(x)) {
+            out <- pre(x)
+            out <- modify(out, worker)
+            out <- post(out)
+        }
+        else {
+            out <- leaf(x)
+        }
+        out
+    }
+    worker(x)
+}
+```
+
+Let's dwell on all of this for a bit. What we care about is inside of the `worker` function. When we say, "on the way down", we mean that the transformation `pre` is applied to the current node before recursing into the next level. Then, we recurse until we hit the leaves. Only after the leaves are transformed do we then perform the transformation `post` on the nodes `pre` transformed. This is what's meant when we say that `post` is applied "on the way up". (I will say that typing this out made things a lot clearer than just re-reading the help file a bunch.)
+
+Now that we have a better understanding of *when* `pre` and `post` get applied, let's consider a different kind of when; that is, when these transformations can be useful.
+
+### Uses of `pre`
+
+The `pre` transformation is useful for standardizing node structures and pruning unneeded nodes before recursing into deeper levels. We'll look at an example of each, starting with standardizing node structures.
+
+**Standardizing node structure**
+
+Imagine you're analyzing a bunch of JSON responses from a REST API. The data you get back looks like the following.
+
+``` json
+[
+  {
+    "first_name": "Jim",
+    "middle_name": "Bo",
+    "last_name": "James"
+  },
+  {
+    "first_name": "John",
+    "last_name": "Doe"
+  }
+]
+```
+
+Sometimes REST APIs will omit a field entirely when it's missing instead of including the field and setting its value to `null`. If we want to convert this JSON into a flat table, this field omission can lead to issues. Fortunately, `modify_tree` makes standardizing the field names easy.
+
+```{r, eval=FALSE}
+library(purrr)
+
+json |>
+  modify_tree(
+    pre = \(x) {
+      expected_names <- c("first_name", "middle_name", "last_name")
+      if (!rlang::is_named(x)) {
+        return(x)
+      }
+      if (all(expected_names %in% names(x))) {
+        return(x)
+      }
+      missing_names <- setdiff(expected_names, names(x))
+      x[missing_names] <- NA
+      return(x)
+    }
+  )
+```
+
+In the code above, we start with an expected set of names. We then check each node that's a named list, and whenever one of the expected names is missing, we replace it with `NA`. Simple, easy, and nice. You can imagine a similar problem where the field name isn't missing, but it was simply called something else a long time ago (e.g. `middle_initial`). You'll see this sort of thing if you ever analyze API responses saved over time. You could use `modify_tree` here as well (this is left as an exercise for the reader.)
+
+**Pruning nodes**
+
+Sometimes we don't care about every detail inside of a list. Other times, we may have some expensive calculation that we need to run on the nodes of a list, and we want to avoid any wasted computation on nodes where we know the answer. The `pre` argument can help us in both these cases. Suppose we're still analyzing those JSON responses from earlier, and we're only concerned with the people with a "J" last name. The following code gives us the filtered subset we need.
+
+```{r, eval=FALSE}
+library(purrr)
+
+json |>
+  modify_tree(
+    pre = \(x) {
+      if (!rlang::is_named(x)) {
+        return(x)
+      }
+      if (has_name(x, "last_name") && startsWith(x$last_name, "J")) {
+        return(x)
+      }
+      NULL
+    }
+  )
+	
+# Result:
+# <list>
+# ├─<list>
+# │ ├─first_name: "Jim"
+# │ ├─middle_name: "Bo"
+# │ └─last_name: "James"
+# └─<NULL>
+```
+
+Here, the code only returns named list nodes if they have a `last_name` field value that starts with "J". It's not great that we end up with a list of the same length with `NULL`s replacing the people that were filtered out, but we'll see that we can improve on that a little later using the `post` transformation. The fact that we can return `NULL` from `pre` instead of the node passed in is a subtle but powerful feature of `modify_tree`. Normally, `modify_tree` will recurse into its input until it reaches the leaves, applying computations as it goes. This pruning effect allows us to short-circuit `modify_tree` from making further recursive calls from that node, resulting in more efficient processing of larger, complex lists.
+
+### Using `post`
+
+So what about `post`? I find `post` useful in at least two situations. One is when you want to further clean up nodes pruned by `pre`. Another is changing the structure of the output, like going from a nested list to a flat table. We'll look at an example of both.
+
+**Pruning nodes (improved)**
+
+We can improve on the filtering we did in the previous example by combining it with `post`. Since `post` sees nodes after being processed by `pre` and `leaf`, we can perform transformations that are complementary to the ones before them (e.g. removing NULL entries from the list of people returned). The example below shows how we can do that.
+
+```{r, eval=FALSE}
+library(purrr)
+
+json |>
+  modify_tree(
+    pre = \(x) {
+      if (!rlang::is_named(x)) {
+        return(x)
+      }
+      if (has_name(x, "last_name") && startsWith(x$last_name, "J")) {
+        return(x)
+      }
+    },
+    post = \(x) {
+      compact(x)
+    }
+  )
+	
+# Result:
+# <list>
+# └─<list>
+#   ├─first_name: "Jim"
+#   ├─middle_name: "Bo"
+#   └─last_name: "James"
+```
+
+While this is great, I think it's more cool to look at how `post` can produce an output with a completely different structure than its input. We often get nested lists when the data we're dealing with is API responses. Once we have these lists, we usually want to transform them into a flattened table so we can manipulate them further using tools like `{dplyr}`, `{data.table}`, and so on. Let's look at an example of converting a deeply nested list into a table using `modify_tree`.
+
+**Rectangling nested lists**
+
+Suppose we have a JSON payload that lists the hierarchical details of a company down to its employees. An example is given below.
+
+``` json
+{
+  "id": "6a995562-3cd1-443c-8d37-505978b97aed",
+  "name": "Big Company",
+  "regions": [
+    {
+      "id": "292beace-47e7-4cf4-bb92-07878795c337",
+      "name": "Region A",
+      "facilities": [
+        {
+          "id": "c9f10e7a-7826-4b24-9824-9e20c4308f8a",
+          "name": "Facility Red",
+          "employees": [
+            {
+              "id": "a766b675-f69d-4a0f-b361-855256a27821",
+              "name": "Satrina"
+            },
+            {
+              "id": "13d9754a-a2a6-4d15-99a0-dbe4fa3cb43f",
+              "name": "Margeree"
+            }
+          ]
+        },
+        {
+          "id": "3b0b6e34-e299-4cad-bd65-a201eb62ab62",
+          "name": "Facility Blue",
+          "employees": [
+            {
+              "id": "30923db3-e9df-46bc-aa8f-a21e539dcb38",
+              "name": "Aariona"
+            },
+            {
+              "id": "761c8c35-0ce2-4bb5-a3aa-75c381c4890a",
+              "name": "Letrina"
+            },
+            {
+              "id": "c10a15cf-df8f-40ac-b290-ffa7ff39b046",
+              "name": "Ehron"
+            }
+          ]
+        },
+        {
+          "id": "33e761a5-6f90-44dd-bbbb-77f7d5a508b6",
+          "name": "Facility Green",
+          "employees": [
+            {
+              "id": "352a605a-559a-436d-8ea9-63d1914ad158",
+              "name": "Uyless"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "53a813cc-8e6a-4542-ab20-2af96bf3517e",
+      "name": "Region B",
+      "facilities": [
+        {
+          "id": "07d1053c-1590-42e9-a03f-21f2ae3e55c0",
+          "name": "Facility Yellow",
+          "employees": [
+            {
+              "id": "b1474078-da33-44a6-b6b8-e5a5f6b2320b",
+              "name": "Uche"
+            },
+            {
+              "id": "7a1bbb06-45f0-4c48-851c-4416b5ebb345",
+              "name": "Lilliam"
+            },
+            {
+              "id": "eee36fb8-8bde-4c06-a97f-27c8d35a9bbd",
+              "name": "Vaidehi"
+            },
+            {
+              "id": "fc6d2504-9702-4c69-84b5-bfd6d7a387ca",
+              "name": "Shieka"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+} 
+```
+
+If you stare at this mess long enough, you'll see there are four entities represented, the company, the regions of the company, the facilities in each region, and the employees that work in each facility. We want to take this nested JSON and turn it into a flat table. We can do this using `modify_tree` and `post` as follows.
+
+```{r, eval=FALSE}
+library(purrr)
+library(tibble)
+
+company_df <- modify_tree(
+  company_json,
+  post = \(x) {
+    if (every(x, rlang::is_atomic)) {
+      return(as_tibble(x))
+    }
+    if (none(x, rlang::is_atomic)) {
+      return(list_rbind(x))
+    }
+    if (some(x, rlang::is_atomic)) {
+      atomics <- keep(x, rlang::is_atomic) |> as_tibble()
+      non_atomics <- keep(x, negate(rlang::is_atomic)) |> pluck(1)
+      out <- list_cbind(
+        list(atomics, non_atomics)
+      )
+      return(out)
+    }
+  }
+) |>
+  set_names(
+    c(
+      "company_id",
+      "company",
+      "region_id",
+      "region",
+      "facility_id",
+      "facility",
+      "employee_id",
+      "employee"
+    )
+  )
+
+#  Result (ID columns omitted for brevity):
+#  A tibble: 10 × 4
+#    company     region   facility        employee  
+#    <chr>       <chr>    <chr>           <chr>
+#  1 Big Company Region A Facility Red    Satrina   
+#  2 Big Company Region A Facility Red    Margeree  
+#  3 Big Company Region A Facility Blue   Aariona   
+#  4 Big Company Region A Facility Blue   Letrina   
+#  5 Big Company Region A Facility Blue   Ehron     
+#  6 Big Company Region A Facility Green  Uyless    
+#  7 Big Company Region B Facility Yellow Uche      
+#  8 Big Company Region B Facility Yellow Lilliam   
+#  9 Big Company Region B Facility Yellow Vaidehi   
+# 10 Big Company Region B Facility Yellow Shieka      
+```
+
+Let's unpack this. Since `post` occurs "on the way up", we should start with the lowest level of the list, the level of the employee. Each employee list is basically a single row table, so we can convert it to a single row `tibble` via `as_tibble`. What's the next level up? This would be the `employees` node. By the time we get here, the employees lists have been turned into tables, so we can stack them row-wise into a single table via `list_rbind`. What about after that? The next level is the facility node. At this point, we have a list containing the facility's ID, name, and a table containing all its employees. We want to combine all of this information into a single table. To do this, we basically take all the atomic vectors in the facility node and turn them into a single row table; we then stitch the columns of this table together with the table of employee information using `list_cbind`. We could discuss the remainder of the transformations needed, but the awesome thing is that the remainder of the transformations just rinse and repeat the transformations we've described for the remaining levels of the list. This also means that the above code can handle arbitrary levels of hierarchy in the list[^2]. Compare this to how we would handle this using, say, `{tidyr}`.
+
+[^2]: In reality, you'll eventually hit a stack limit error due to the amount of recursive calls, but conceptually it can handle arbitrary levels of hierarchy.
+
+```{r, eval=FALSE}
+library(tidyr)
+library(dplyr)
+
+company_df <- tibble(
+  data = list(company)
+) |>
+  unnest_wider(data) |>
+  rename(
+    company_id = id,
+    company = name
+  ) |>
+  unnest_longer(regions) |>
+  unnest_wider(regions) |>
+  rename(
+    region_id = id,
+    region = name
+  ) |>
+  unnest_longer(facilities) |>
+  unnest_wider(facilities) |>
+  rename(
+    facility_id = id,
+    facility = name
+  ) |>
+  unnest_longer(employees) |>
+  unnest_wider(employees) |>
+  rename(
+    employee_id = id,
+    employee = name
+  )
+
+#  Result (ID columns omitted for brevity):
+#  A tibble: 10 × 4
+#    company     region   facility        employee  
+#    <chr>       <chr>    <chr>           <chr>
+#  1 Big Company Region A Facility Red    Satrina   
+#  2 Big Company Region A Facility Red    Margeree  
+#  3 Big Company Region A Facility Blue   Aariona   
+#  4 Big Company Region A Facility Blue   Letrina   
+#  5 Big Company Region A Facility Blue   Ehron     
+#  6 Big Company Region A Facility Green  Uyless    
+#  7 Big Company Region B Facility Yellow Uche      
+#  8 Big Company Region B Facility Yellow Lilliam   
+#  9 Big Company Region B Facility Yellow Vaidehi   
+# 10 Big Company Region B Facility Yellow Shieka      
+```
+
+While the code above achieves the same result, it lacks some of the elegance we get using `modify_tree` because we have to add successive calls to `unnest_longer` and `unnest_wider` for each additional layer of hierarchy.
+
+## Conclusion
+
+Reach for `modify_tree` when you need to transform nodes at multiple levels of a nested list, not just the leaves, and when simple iteration won't cut it. For data more convoluted than that, reach for a bottle of something stiff and persevere.

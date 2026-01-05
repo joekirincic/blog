@@ -1,0 +1,61 @@
+---
+title: "Managing AWS services in R with `{paws}`"
+description: "See how the R package `{paws}` can help you automate AWS workflows."
+author: "Joe Kirincic"
+date: "2025-12-22"
+categories: [R,aws]
+image: ""
+image-alt: ""
+draft: true
+---
+
+## Introduction
+
+I've been meaning to play with the R package `{paws}` for some time, but I've never gotten around to it. The package provides an SDK for Amazon Web Services, allowing R users to programmatically engage with services like S3, SageMaker, Glue, and many others. In this post, I'll show how I used `{paws}` to solve a problem I had recently; that is, restoring a set of database tables from a backup.
+
+## What happened?
+
+I released a change to an application I have in AWS that ended up causing a bunch of bad data to be generated in the app's database. When something like this happens, you might be tempted to revert the backend change and clean up the bad data in the DB manually instead of using a database backup. In some cases, this might work, but often it won't. There's a few reasons for this. One is that changes can cause deletion of records; once deleted, they can't be recovered. Another reason is that backend changes can have cascading effects. I write a record into one table X, and that write triggers the creation of records in tables Y and Z. Writes to tables Y and Z can themselves cause records in other tables to be generated as well. This creates a complicated trace of changes across tables that's easy to get wrong when performing cleanup manually. A third reason is that the changes that need to be made involve complex business logic that can be error prone to replicate in raw SQL.
+
+In many cases, we're better off restoring tables from a database backup. These backups are point-in-time snapshots of your entire database: every schema, table, index, and custom function is contained in the backup. The main tradeoff with using backups as opposed to manually fixing bad records is that restoring from a backup can lead to data loss. Maybe the backend change only affected a subset of the cases relevant to it while the majority of cases still generated fine. In this scenario, restoring from a backup would delete those records because they weren't contained in the snapshot when it was taken. If restoring from a backup would cause a large amount of good transactional data to be lost, then a hybrid approach could be considered. In this scenario, we save the new, good data someplace before we restore from the backup. Once the DB has been restored, we can insert the new records we stashed prior. This sort of setup can minimize data loss, but it does come with extra complexity that needs to be weighed accordingly.
+
+## The solution: use `{paws}`
+
+As it turns out, `paws` has a client for AWS's relational database service (RDS). The client exposes methods that we can use to do two different things.
+1. Restore the entire database from a backup.
+2. Exporting a subset of a database (e.g. a set of tables in a particular schema) as `*.parquet` files in AWS S3.
+We're going to explore (1) in detail, but we'll touch on (2) as an added bonus at the end.
+
+### Restoring the whole database
+
+Consider the code example below.
+
+```{r, eval=FALSE}
+library(paws)
+
+rds_client ← rds()
+
+# TODO: finish implementation
+
+```
+
+### Restoring a subset of the database
+
+Consider the code example below.
+
+```{r, eval=FALSE}
+
+library(paws)
+
+rds_client ← rds()
+s3_client ← s3()
+
+#TODO: finish implementation.
+
+```
+
+## Conclusion
+
+In this post, we've learned how to reduce a complex operational task into a few lines of R code. We not only saw how a package like `{paws}` can be used to solve a real problem; we also learned how ergonomic it is to use within an R script. There's plenty more that the `{paws}` package can do for you. I encourage you to explore the documentation and try it out yourself.
+
+
