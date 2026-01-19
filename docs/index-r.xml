@@ -20,7 +20,7 @@
   <category>data-engineering</category>
   <guid>https://joekirincic.com/posts/this-r-script-could-ve-been-an-s7-class/</guid>
   <pubDate>Mon, 19 Jan 2026 05:00:00 GMT</pubDate>
-  <media:content url="https://joekirincic.com/posts/this-r-script-could-ve-been-an-s7-class" medium="image"/>
+  <media:content url="https://joekirincic.com/posts/this-r-script-could-ve-been-an-s7-class/thumbnail.jpeg" medium="image" type="image/jpeg"/>
 </item>
 <item>
   <title>Taming gnarly nested data with purrr::modify_tree</title>

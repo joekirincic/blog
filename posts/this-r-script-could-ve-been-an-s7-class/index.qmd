@@ -4,7 +4,7 @@ description: "A tutorial about how to use `{S7}` to improve your data pipelines.
 author: "Joe Kirincic"
 date: "2026-01-19"
 categories: [R,data-engineering]
-image: ""
+image: "thumbnail.jpeg"
 image-alt: ""
 draft: true
 ---
