@@ -1,0 +1,238 @@
+---
+title: "This R script could've been an S7 class"
+description: "A tutorial about how to use `{S7}` to improve your data pipelines."
+author: "Joe Kirincic"
+date: "2026-01-19"
+categories: [R,data-engineering]
+image: ""
+image-alt: ""
+draft: true
+---
+
+## Introduction
+
+At work, many meetings could have been an email. In data engineering, a lot of R scripts could have been an S7 class. A lot of work goes into integrating with other systems. Data flows in from systems in different formats, and you need to standardize it all before writing it out to your warehouse, lakehouse, condo, whatever. The same goes for data flowing out. If you want to data to flow out of your system and into some other system, it's likely that other system models data differently than you do. As your team adds new systems to integrate with, you could imagine having separate R scripts that handle exporting data to each system. You'd have a `popular-vendor-export.R` script, a `niche-vendor-integration.R` script, and so on. In this post, I'm going to show you another way to do this using the `{S7}` OOP system in R. Let's get to it.
+
+## What we're building
+
+We're going to build an R application that generates a different flat file for each facility in a fictional dataset based on configuration data for each facility stored in a Postgres database. The report generation workflow will be similar to other workflows like producing a linear model for each subset of a dataset (TODO: refer to a source ). In this fictional world, we support integrations for the following vendors.
+- Popular Vendor: Popular Vendor expects a fixed-width file with a `.txt` extension that allows options for excluding certain fields.
+- Niche Vendor: Niche Vendor expects a CSV file. It has no additional configuration options but it does have constraints on certain fields.
+
+## Our dataset
+
+I work in healthcare, so I'm going to make up a healthcare-esque dataset. We'll be dealing with billing data for providers at a medical facility.
+
+```{r, eval=FALSE}
+
+library(S7)
+library(fabricatr)
+library(tidyverse)
+
+billing_data <- fabricate(
+  facility_id = add_level(N = 3, n_patients = sample(1:3, size = 1)),
+  patient_id = add_level(
+    n_patients,
+    patient = randomNames::randomNames(n = N),
+    n_dates = sample(1:3, size = N, replace = TRUE),
+    n_billing_codes = sample(1:3, size = N, replace = TRUE),
+    billing_codes = map_chr(
+      n_billing_codes,
+      ~ {
+        sample(c("ABC123", "DEF456", "GHI789"), size = .x, replace = FALSE) |>
+          str_flatten_comma()
+      }
+    )
+  ),
+  date_of_service_id = add_level(
+    N = n_dates,
+    date_of_service = sample(
+      seq_len(days_in_month(today())),
+      size = N,
+      replace = TRUE
+    ) |>
+      make_date(year = 2026, month = month(today()), day = _)
+  )
+) |>
+  separate_longer_delim(
+    billing_codes,
+    delim = ", "
+  ) |>
+  mutate(
+    facility = paste0("FAC-", facility_id),
+    minutes = sample(c(8, 10, 15, 30, 45, 60), size = n(), replace = TRUE)
+  ) |>
+  rename(
+    billing_code = billing_codes
+  ) |>
+  transmute(
+    facility,
+    patient,
+    date_of_service,
+    billing_code,
+    medical_code = "abc987",
+    treatment_code = "def123",
+    minutes
+  ) |>
+  arrange(
+    facility,
+    patient,
+    date_of_service,
+    billing_code
+  )
+
+
+```
+
+Each row in this dataset represents billable minutes for a medical service. 
+
+## What is `{S7}`?
+
+The R package `{S7}` provides a new object oriented programming (OOP) system for R. If you didn't know, R has several OOP options to choose from, S3, S4, R6, and now S7. S7 is a functional OOP system similar to S3 and S4; the group that put it together see it as a successor to S3 and S4, providing the best of both paradigms. In the S7 paradigm, you create objects generics that operate on those objects. This is different from typical OOP systems where objects have methods bound to them that are responsible for mutating their state. While R provides OOP, spiritually it's more of a functional programming language. 
+
+## Why `{S7}` instead of `{R6}`?
+
+Let's be real: this solution could be implemented using either system. That said, I chose S7 for a couple of reasons. One is simply that I wanted to learn how to use it. The other is that the `BillingExport` class isn't really a stateful actor: it's more like a bundling of properties we'd pass to a function instead of individual arguments. Yes, `generate_export` does some stateful changes to the dynamic properties `error` and `output_files`, but these transformations are idempotent. If the `BillingExport` class was responsible for managing state material to the program's execution flow, then I would consider R6 the more appropriate choice.
+
+## Creating our base class
+
+In this billing system, our outputs are billing export files of some kind. All billing exports share some common properties but differ in others. This sort of thing is best suited to have an abstract base class from which common properties will be defined, and then inheritors of that base class will add additional properties as needed. Consider the following.
+
+```{r, eval=FALSE}
+
+BillingExport <- new_class(
+  name = "BillingExport",
+  abstract = TRUE,
+  properties = list(
+    data = new_property(
+      class = class_data.frame
+    ),
+    config = new_property(
+      class = class_list
+    ),
+    output_files = new_property(
+      class = class_character
+    ),
+    errors = new_property(
+      class = class_data.frame
+    )
+  )
+)
+
+```
+
+There's a few things going on in the code here. When we set `abstract = TRUE` in our class definition, the `BillingExport` class cannot be instantiated directly. This aligns with the ontology of the system we're making. A basic billing export type doesn't exist; each type is different from the others. But all billing exports share come common properties, and we model that through the abstract base class. Notice the other arguments that go into the `new_class` function. We give our class a `name`, and a named list of `properties`, where each property is created with a known type (e.g. `data = new_property(class = class_data.frame)`). This is similar to how slots work in S4 classes. Using this base, we can now create our other billing export types.
+
+## The Vendor classes
+
+```{r, eval=FALSE}
+
+PopularVendorBillingExport <- new_class(
+  name = "PopularVendorBillingExport",
+  parent = BillingExport
+)
+
+NicheVendorBillingExport <- new_class(
+  name = "NicheVendorBillingExport",
+  parent = BillingExport
+)
+
+```
+
+Notice there's very little code here. This is a benefit of inheriting from a base class. When we create an instance of `PopularVendorBillingExport` or `NicheVendorBillingExport`, all of these properties will already be present and validated. But if we haven't defined any of the report generating logic in our classes, where do we put them? The answer is in generics we define for each billing export type. This is a functional OOP paradigm we're working with here after all.
+
+## The `generate_billing_export` generic
+
+Like S3 and S4, S7 uses function generics to operate on objects. We're going to create a generic called `generate_billing_export` that will behave differently depending on the kind of billing export object we pass to it. We'll present the code for creating the generic and the method implementation for `PopularVendorBillingExport`. I omit the rest for brevity.
+
+```{r, eval=FALSE}
+
+generate_billing_export <- new_generic(
+  name = "generate_billing_export",
+  dispatch_args = "x"
+)
+
+method(generate_billing_export, PopularVendorBillingExport) <- function(
+  x
+) {
+  d <- x@data
+  if (x@config$exclude_medical_code_field) {
+    d <- d |>
+      mutate(
+        medical_code_field = ""
+      )
+  }
+  if (x@config$exclude_treatment_code_field) {
+    d <- d |>
+      mutate(
+        treatment_code_field = ""
+      )
+  }
+  facility <- d |> pluck("facility", 1)
+  d |>
+    readr::write_tsv(
+      file = here::here(
+        "data",
+        glue::glue("popular-vendor-export_{facility}.tsv")
+      ),
+      na = ""
+    )
+  invisible(x)
+}
+```
+
+It's inside these method definitions that the bulk of our original R scripts will go. All of the logic for formatting fields, omitting fields, and so on, all gets included here. By passing the `PopularVendorBillingExport` object as an argument, we save ourselves having to pass a bunch of other arguments to the function. Everything the function needs is contained in the properties of the billing export object. 
+
+## The new workflow
+
+When we implement our S7 classes well, our program becomes more elegant and easier to reason about. Consider the code below.
+
+```{r, eval=FALSE}
+
+generate_billing_export_safely <- purrr::safely(
+  generate_billing_export,
+  otherwise = NULL
+)
+
+billing_exports <- billing_data |>
+  nest(
+    data = everything(),
+    .by = c(facility, billing_export_type)
+  ) |>
+  transmute(
+    facility,
+    billing_export_type,
+    billing_export = map2(
+      .x = billing_export_type,
+      .y = data,
+      .f = \(x, y) {
+        be <- billing_export(type = x, data = y)
+        generate_billing_export_safely(be)
+      }
+    )
+  )
+
+```
+
+Sometimes an error will occur generating an export for one facility and not the others. We don't want one facility holding up the others, so we create a simple "safe" version of `generate_billing_export` called `generate_billing_export_safely` that returns `NULL` if we encounter an error. From there, generating billing exports for each facility reduces to another split-apply-combine workflow that we're used to seeing in `{dplyr}` workflows. Regardless of how many new vendors we add, this code will still work the same way. Good design is powerful. There's plenty of ways we can improve upon this script further.
+
+## Going further
+
+We've certainly improved on our existing workflow, but we're not done yet. There's plenty of ways we can improve this program further. I'll sketch a few things I added that are useful, and leave their implementation as an exercise to the reader. You can check out the repo on GitHub to see how I ended up going it myself.
+
+###### Creating a `BillingExportBatch` class
+
+The split-apply-combine pattern we used to generate all the billing exports is simple and familiar to many R users, so we could leave that code alone. But we could also imagine wrapping that code inside of a new generic on a new class for batches of billing exports. We could call the class something like `BillingExportBatch`, and the generic could be `generate_billing_export_batch`. The main reason for this would be to simplify the main program even further. Ideally, our main program `billing-export.R` shouldn't expose a lot of implementation detail. 
+
+###### Creating an error report 
+
+We have an `errors` property on our billing export objects, but we never do anything with it. We're going to address that now. In healthcare billing, some vendors have constraints on certain fields. For example, a vendor might require that the onset date of the primary diagnosis has to be less than or equal to the date of evaluation. Medical providers are busy people, and documentation is hard, so sometimes mistakes are made. We want to capture each error as a row in the `errors` tibble, and we want to do two things with it. One is to aggregate the type of each error and add it to our program logs. The other is to write the errors out somewhere so a team member could investigate and resolve them. 
+
+###### Bundle the different billing export types into a package and add tests with`testthat`
+
+Moving our scripts into S7 classes makes it easier for us to gather all of our billing export code into an R package. This in turn makes it easier to enable all of the other things available to R packages, like documentation with `{roxygen2}` and `{pkgdown}`, testing with `{testthat}`, and more. Let's dwell on the testing bit for a minute. We could bundle our scripts into an R package, too, like in `inst/scripts`. This would be fine, but you never really get to test the full script in your test suite, just the functions you export in the package. By converting the scripts to S7 classes, the entire program becomes an R object, making every part of it amenable to your testing framework. This is a powerful thing.
+
+## Conclusion
+
+This side project made it clear to me that `{S7}` is worth a try. The ability to bundle related data into objects and operate on them with generic functions creates a whole lot of opportunity for R developers looking to solve complex problems. If you've used `{S7}` in your own work, I'd like to hear about it; if you haven't, I encourage you to take it out for a spin, and let me know what you think.
+
