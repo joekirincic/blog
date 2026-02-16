@@ -15,9 +15,7 @@ At work, many meetings could have been an email. In data engineering, a lot of R
 
 ## What we're building
 
-We're going to build an R application that generates a different flat file for each facility in a fictional dataset based on configuration data for each facility stored in a Postgres database. The report generation workflow will be similar to other workflows like producing a linear model for each subset of a dataset (TODO: refer to a source ). In this fictional world, we support integrations for the following vendors.
-- Popular Vendor: Popular Vendor expects a fixed-width file with a `.txt` extension that allows options for excluding certain fields.
-- Niche Vendor: Niche Vendor expects a CSV file. It has no additional configuration options but it does have constraints on certain fields.
+We're going to build an R application that generates a different flat file for each facility in a fictional dataset based on configuration data for each facility stored in a Postgres database. The report generation workflow will be similar to other workflows like producing a linear model for each subset of a dataset (TODO: refer to a source ). In this fictional world, we support integrations for the following vendors. - Popular Vendor: Popular Vendor expects a fixed-width file with a `.txt` extension that allows options for excluding certain fields. - Niche Vendor: Niche Vendor expects a CSV file. It has no additional configuration options but it does have constraints on certain fields.
 
 ## Our dataset
 
@@ -84,11 +82,11 @@ billing_data <- fabricate(
 
 ```
 
-Each row in this dataset represents billable minutes for a medical service. 
+Each row in this dataset represents billable minutes for a medical service.
 
 ## What is `{S7}`?
 
-The R package `{S7}` provides a new object oriented programming (OOP) system for R. If you didn't know, R has several OOP options to choose from, S3, S4, R6, and now S7. S7 is a functional OOP system similar to S3 and S4; the group that put it together see it as a successor to S3 and S4, providing the best of both paradigms. In the S7 paradigm, you create objects generics that operate on those objects. This is different from typical OOP systems where objects have methods bound to them that are responsible for mutating their state. While R provides OOP, spiritually it's more of a functional programming language. 
+The R package `{S7}` provides a new object oriented programming (OOP) system for R. If you didn't know, R has several OOP options to choose from, S3, S4, R6, and now S7. S7 is a functional OOP system similar to S3 and S4; the group that put it together see it as a successor to S3 and S4, providing the best of both paradigms. In the S7 paradigm, you create objects generics that operate on those objects. This is different from typical OOP systems where objects have methods bound to them that are responsible for mutating their state. While R provides OOP, spiritually it's more of a functional programming language.
 
 ## Why `{S7}` instead of `{R6}`?
 
@@ -181,7 +179,7 @@ method(generate_billing_export, PopularVendorBillingExport) <- function(
 }
 ```
 
-It's inside these method definitions that the bulk of our original R scripts will go. All of the logic for formatting fields, omitting fields, and so on, all gets included here. By passing the `PopularVendorBillingExport` object as an argument, we save ourselves having to pass a bunch of other arguments to the function. Everything the function needs is contained in the properties of the billing export object. 
+It's inside these method definitions that the bulk of our original R scripts will go. All of the logic for formatting fields, omitting fields, and so on, all gets included here. By passing the `PopularVendorBillingExport` object as an argument, we save ourselves having to pass a bunch of other arguments to the function. Everything the function needs is contained in the properties of the billing export object.
 
 ## The new workflow
 
@@ -222,11 +220,11 @@ We've certainly improved on our existing workflow, but we're not done yet. There
 
 ###### Creating a `BillingExportBatch` class
 
-The split-apply-combine pattern we used to generate all the billing exports is simple and familiar to many R users, so we could leave that code alone. But we could also imagine wrapping that code inside of a new generic on a new class for batches of billing exports. We could call the class something like `BillingExportBatch`, and the generic could be `generate_billing_export_batch`. The main reason for this would be to simplify the main program even further. Ideally, our main program `billing-export.R` shouldn't expose a lot of implementation detail. 
+The split-apply-combine pattern we used to generate all the billing exports is simple and familiar to many R users, so we could leave that code alone. But we could also imagine wrapping that code inside of a new generic on a new class for batches of billing exports. We could call the class something like `BillingExportBatch`, and the generic could be `generate_billing_export_batch`. The main reason for this would be to simplify the main program even further. Ideally, our main program `billing-export.R` shouldn't expose a lot of implementation detail.
 
-###### Creating an error report 
+###### Creating an error report
 
-We have an `errors` property on our billing export objects, but we never do anything with it. We're going to address that now. In healthcare billing, some vendors have constraints on certain fields. For example, a vendor might require that the onset date of the primary diagnosis has to be less than or equal to the date of evaluation. Medical providers are busy people, and documentation is hard, so sometimes mistakes are made. We want to capture each error as a row in the `errors` tibble, and we want to do two things with it. One is to aggregate the type of each error and add it to our program logs. The other is to write the errors out somewhere so a team member could investigate and resolve them. 
+We have an `errors` property on our billing export objects, but we never do anything with it. We're going to address that now. In healthcare billing, some vendors have constraints on certain fields. For example, a vendor might require that the onset date of the primary diagnosis has to be less than or equal to the date of evaluation. Medical providers are busy people, and documentation is hard, so sometimes mistakes are made. We want to capture each error as a row in the `errors` tibble, and we want to do two things with it. One is to aggregate the type of each error and add it to our program logs. The other is to write the errors out somewhere so a team member could investigate and resolve them.
 
 ###### Bundle the different billing export types into a package and add tests with`testthat`
 
@@ -235,4 +233,3 @@ Moving our scripts into S7 classes makes it easier for us to gather all of our b
 ## Conclusion
 
 This side project made it clear to me that `{S7}` is worth a try. The ability to bundle related data into objects and operate on them with generic functions creates a whole lot of opportunity for R developers looking to solve complex problems. If you've used `{S7}` in your own work, I'd like to hear about it; if you haven't, I encourage you to take it out for a spin, and let me know what you think.
-

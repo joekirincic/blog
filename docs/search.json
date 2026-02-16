@@ -7,90 +7,6 @@
     "text": "Shotgun bio! I’m currently the principal data scientist at RESTORE, where we’re building a new EMR platform for physical, occupational, and speech therapists. Growing up, I maintained a small zoo of 275 animals ranging from pythons and cockatiels to flying squirrels and foxes. After the zoo disbanded, I attended Ohio Wesleyan University, where I earned my bachelor’s degrees in philosophy and math. I stumbled into the data space through a series of happy accidents. In prior roles I’ve worked as a data analyst and a data engineer. I have a lot of interests including, but not limited to, representation learning, simulation studies, and programming language interoperability. My favorite past time is showing that something that can’t be done with R, in fact, can be done with R; it’s a kind of hold-my-beer-driven development. Outside of the data space, I’m a member of the sketch comedy group Kidney+. I live in Cleveland, OH with my amazing partner, Emily, and my two pythons, Rorty and Sweettooth."
   },
   {
-    "objectID": "posts/this-r-script-could-ve-been-an-s7-class/index.html",
-    "href": "posts/this-r-script-could-ve-been-an-s7-class/index.html",
-    "title": "This R script could’ve been an S7 class",
-    "section": "",
-    "text": "At work, many meetings could have been an email. In data engineering, a lot of R scripts could have been an S7 class. A lot of work goes into integrating with other systems. Data flows in from systems in different formats, and you need to standardize it all before writing it out to your warehouse, lakehouse, condo, whatever. The same goes for data flowing out. If you want to data to flow out of your system and into some other system, it’s likely that other system models data differently than you do. As your team adds new systems to integrate with, you could imagine having separate R scripts that handle exporting data to each system. You’d have a popular-vendor-export.R script, a niche-vendor-integration.R script, and so on. In this post, I’m going to show you another way to do this using the {S7} OOP system in R. Let’s get to it."
-  },
-  {
-    "objectID": "posts/this-r-script-could-ve-been-an-s7-class/index.html#introduction",
-    "href": "posts/this-r-script-could-ve-been-an-s7-class/index.html#introduction",
-    "title": "This R script could’ve been an S7 class",
-    "section": "",
-    "text": "At work, many meetings could have been an email. In data engineering, a lot of R scripts could have been an S7 class. A lot of work goes into integrating with other systems. Data flows in from systems in different formats, and you need to standardize it all before writing it out to your warehouse, lakehouse, condo, whatever. The same goes for data flowing out. If you want to data to flow out of your system and into some other system, it’s likely that other system models data differently than you do. As your team adds new systems to integrate with, you could imagine having separate R scripts that handle exporting data to each system. You’d have a popular-vendor-export.R script, a niche-vendor-integration.R script, and so on. In this post, I’m going to show you another way to do this using the {S7} OOP system in R. Let’s get to it."
-  },
-  {
-    "objectID": "posts/this-r-script-could-ve-been-an-s7-class/index.html#what-were-building",
-    "href": "posts/this-r-script-could-ve-been-an-s7-class/index.html#what-were-building",
-    "title": "This R script could’ve been an S7 class",
-    "section": "What we’re building",
-    "text": "What we’re building\nWe’re going to build an R application that generates a different flat file for each facility in a fictional dataset based on configuration data for each facility stored in a Postgres database. The report generation workflow will be similar to other workflows like producing a linear model for each subset of a dataset (TODO: refer to a source ). In this fictional world, we support integrations for the following vendors. - Popular Vendor: Popular Vendor expects a fixed-width file with a .txt extension that allows options for excluding certain fields. - Niche Vendor: Niche Vendor expects a CSV file. It has no additional configuration options but it does have constraints on certain fields."
-  },
-  {
-    "objectID": "posts/this-r-script-could-ve-been-an-s7-class/index.html#our-dataset",
-    "href": "posts/this-r-script-could-ve-been-an-s7-class/index.html#our-dataset",
-    "title": "This R script could’ve been an S7 class",
-    "section": "Our dataset",
-    "text": "Our dataset\nI work in healthcare, so I’m going to make up a healthcare-esque dataset. We’ll be dealing with billing data for providers at a medical facility.\n\nlibrary(S7)\nlibrary(fabricatr)\nlibrary(tidyverse)\n\nbilling_data &lt;- fabricate(\n  facility_id = add_level(N = 3, n_patients = sample(1:3, size = 1)),\n  patient_id = add_level(\n    n_patients,\n    patient = randomNames::randomNames(n = N),\n    n_dates = sample(1:3, size = N, replace = TRUE),\n    n_billing_codes = sample(1:3, size = N, replace = TRUE),\n    billing_codes = map_chr(\n      n_billing_codes,\n      ~ {\n        sample(c(\"ABC123\", \"DEF456\", \"GHI789\"), size = .x, replace = FALSE) |&gt;\n          str_flatten_comma()\n      }\n    )\n  ),\n  date_of_service_id = add_level(\n    N = n_dates,\n    date_of_service = sample(\n      seq_len(days_in_month(today())),\n      size = N,\n      replace = TRUE\n    ) |&gt;\n      make_date(year = 2026, month = month(today()), day = _)\n  )\n) |&gt;\n  separate_longer_delim(\n    billing_codes,\n    delim = \", \"\n  ) |&gt;\n  mutate(\n    facility = paste0(\"FAC-\", facility_id),\n    minutes = sample(c(8, 10, 15, 30, 45, 60), size = n(), replace = TRUE)\n  ) |&gt;\n  rename(\n    billing_code = billing_codes\n  ) |&gt;\n  transmute(\n    facility,\n    patient,\n    date_of_service,\n    billing_code,\n    medical_code = \"abc987\",\n    treatment_code = \"def123\",\n    minutes\n  ) |&gt;\n  arrange(\n    facility,\n    patient,\n    date_of_service,\n    billing_code\n  )\n\nEach row in this dataset represents billable minutes for a medical service."
-  },
-  {
-    "objectID": "posts/this-r-script-could-ve-been-an-s7-class/index.html#what-is-s7",
-    "href": "posts/this-r-script-could-ve-been-an-s7-class/index.html#what-is-s7",
-    "title": "This R script could’ve been an S7 class",
-    "section": "What is {S7}?",
-    "text": "What is {S7}?\nThe R package {S7} provides a new object oriented programming (OOP) system for R. If you didn’t know, R has several OOP options to choose from, S3, S4, R6, and now S7. S7 is a functional OOP system similar to S3 and S4; the group that put it together see it as a successor to S3 and S4, providing the best of both paradigms. In the S7 paradigm, you create objects generics that operate on those objects. This is different from typical OOP systems where objects have methods bound to them that are responsible for mutating their state. While R provides OOP, spiritually it’s more of a functional programming language."
-  },
-  {
-    "objectID": "posts/this-r-script-could-ve-been-an-s7-class/index.html#why-s7-instead-of-r6",
-    "href": "posts/this-r-script-could-ve-been-an-s7-class/index.html#why-s7-instead-of-r6",
-    "title": "This R script could’ve been an S7 class",
-    "section": "Why {S7} instead of {R6}?",
-    "text": "Why {S7} instead of {R6}?\nLet’s be real: this solution could be implemented using either system. That said, I chose S7 for a couple of reasons. One is simply that I wanted to learn how to use it. The other is that the BillingExport class isn’t really a stateful actor: it’s more like a bundling of properties we’d pass to a function instead of individual arguments. Yes, generate_export does some stateful changes to the dynamic properties error and output_files, but these transformations are idempotent. If the BillingExport class was responsible for managing state material to the program’s execution flow, then I would consider R6 the more appropriate choice."
-  },
-  {
-    "objectID": "posts/this-r-script-could-ve-been-an-s7-class/index.html#creating-our-base-class",
-    "href": "posts/this-r-script-could-ve-been-an-s7-class/index.html#creating-our-base-class",
-    "title": "This R script could’ve been an S7 class",
-    "section": "Creating our base class",
-    "text": "Creating our base class\nIn this billing system, our outputs are billing export files of some kind. All billing exports share some common properties but differ in others. This sort of thing is best suited to have an abstract base class from which common properties will be defined, and then inheritors of that base class will add additional properties as needed. Consider the following.\n\nBillingExport &lt;- new_class(\n  name = \"BillingExport\",\n  abstract = TRUE,\n  properties = list(\n    data = new_property(\n      class = class_data.frame\n    ),\n    config = new_property(\n      class = class_list\n    ),\n    output_files = new_property(\n      class = class_character\n    ),\n    errors = new_property(\n      class = class_data.frame\n    )\n  )\n)\n\nThere’s a few things going on in the code here. When we set abstract = TRUE in our class definition, the BillingExport class cannot be instantiated directly. This aligns with the ontology of the system we’re making. A basic billing export type doesn’t exist; each type is different from the others. But all billing exports share come common properties, and we model that through the abstract base class. Notice the other arguments that go into the new_class function. We give our class a name, and a named list of properties, where each property is created with a known type (e.g. data = new_property(class = class_data.frame)). This is similar to how slots work in S4 classes. Using this base, we can now create our other billing export types."
-  },
-  {
-    "objectID": "posts/this-r-script-could-ve-been-an-s7-class/index.html#the-vendor-classes",
-    "href": "posts/this-r-script-could-ve-been-an-s7-class/index.html#the-vendor-classes",
-    "title": "This R script could’ve been an S7 class",
-    "section": "The Vendor classes",
-    "text": "The Vendor classes\n\nPopularVendorBillingExport &lt;- new_class(\n  name = \"PopularVendorBillingExport\",\n  parent = BillingExport\n)\n\nNicheVendorBillingExport &lt;- new_class(\n  name = \"NicheVendorBillingExport\",\n  parent = BillingExport\n)\n\nNotice there’s very little code here. This is a benefit of inheriting from a base class. When we create an instance of PopularVendorBillingExport or NicheVendorBillingExport, all of these properties will already be present and validated. But if we haven’t defined any of the report generating logic in our classes, where do we put them? The answer is in generics we define for each billing export type. This is a functional OOP paradigm we’re working with here after all."
-  },
-  {
-    "objectID": "posts/this-r-script-could-ve-been-an-s7-class/index.html#the-generate_billing_export-generic",
-    "href": "posts/this-r-script-could-ve-been-an-s7-class/index.html#the-generate_billing_export-generic",
-    "title": "This R script could’ve been an S7 class",
-    "section": "The generate_billing_export generic",
-    "text": "The generate_billing_export generic\nLike S3 and S4, S7 uses function generics to operate on objects. We’re going to create a generic called generate_billing_export that will behave differently depending on the kind of billing export object we pass to it. We’ll present the code for creating the generic and the method implementation for PopularVendorBillingExport. I omit the rest for brevity.\n\ngenerate_billing_export &lt;- new_generic(\n  name = \"generate_billing_export\",\n  dispatch_args = \"x\"\n)\n\nmethod(generate_billing_export, PopularVendorBillingExport) &lt;- function(\n  x\n) {\n  d &lt;- x@data\n  if (x@config$exclude_medical_code_field) {\n    d &lt;- d |&gt;\n      mutate(\n        medical_code_field = \"\"\n      )\n  }\n  if (x@config$exclude_treatment_code_field) {\n    d &lt;- d |&gt;\n      mutate(\n        treatment_code_field = \"\"\n      )\n  }\n  facility &lt;- d |&gt; pluck(\"facility\", 1)\n  d |&gt;\n    readr::write_tsv(\n      file = here::here(\n        \"data\",\n        glue::glue(\"popular-vendor-export_{facility}.tsv\")\n      ),\n      na = \"\"\n    )\n  invisible(x)\n}\n\nIt’s inside these method definitions that the bulk of our original R scripts will go. All of the logic for formatting fields, omitting fields, and so on, all gets included here. By passing the PopularVendorBillingExport object as an argument, we save ourselves having to pass a bunch of other arguments to the function. Everything the function needs is contained in the properties of the billing export object."
-  },
-  {
-    "objectID": "posts/this-r-script-could-ve-been-an-s7-class/index.html#the-new-workflow",
-    "href": "posts/this-r-script-could-ve-been-an-s7-class/index.html#the-new-workflow",
-    "title": "This R script could’ve been an S7 class",
-    "section": "The new workflow",
-    "text": "The new workflow\nWhen we implement our S7 classes well, our program becomes more elegant and easier to reason about. Consider the code below.\n\ngenerate_billing_export_safely &lt;- purrr::safely(\n  generate_billing_export,\n  otherwise = NULL\n)\n\nbilling_exports &lt;- billing_data |&gt;\n  nest(\n    data = everything(),\n    .by = c(facility, billing_export_type)\n  ) |&gt;\n  transmute(\n    facility,\n    billing_export_type,\n    billing_export = map2(\n      .x = billing_export_type,\n      .y = data,\n      .f = \\(x, y) {\n        be &lt;- billing_export(type = x, data = y)\n        generate_billing_export_safely(be)\n      }\n    )\n  )\n\nSometimes an error will occur generating an export for one facility and not the others. We don’t want one facility holding up the others, so we create a simple “safe” version of generate_billing_export called generate_billing_export_safely that returns NULL if we encounter an error. From there, generating billing exports for each facility reduces to another split-apply-combine workflow that we’re used to seeing in {dplyr} workflows. Regardless of how many new vendors we add, this code will still work the same way. Good design is powerful. There’s plenty of ways we can improve upon this script further."
-  },
-  {
-    "objectID": "posts/this-r-script-could-ve-been-an-s7-class/index.html#going-further",
-    "href": "posts/this-r-script-could-ve-been-an-s7-class/index.html#going-further",
-    "title": "This R script could’ve been an S7 class",
-    "section": "Going further",
-    "text": "Going further\nWe’ve certainly improved on our existing workflow, but we’re not done yet. There’s plenty of ways we can improve this program further. I’ll sketch a few things I added that are useful, and leave their implementation as an exercise to the reader. You can check out the repo on GitHub to see how I ended up going it myself.\n\nCreating a BillingExportBatch class\nThe split-apply-combine pattern we used to generate all the billing exports is simple and familiar to many R users, so we could leave that code alone. But we could also imagine wrapping that code inside of a new generic on a new class for batches of billing exports. We could call the class something like BillingExportBatch, and the generic could be generate_billing_export_batch. The main reason for this would be to simplify the main program even further. Ideally, our main program billing-export.R shouldn’t expose a lot of implementation detail.\n\n\nCreating an error report\nWe have an errors property on our billing export objects, but we never do anything with it. We’re going to address that now. In healthcare billing, some vendors have constraints on certain fields. For example, a vendor might require that the onset date of the primary diagnosis has to be less than or equal to the date of evaluation. Medical providers are busy people, and documentation is hard, so sometimes mistakes are made. We want to capture each error as a row in the errors tibble, and we want to do two things with it. One is to aggregate the type of each error and add it to our program logs. The other is to write the errors out somewhere so a team member could investigate and resolve them.\n\n\nBundle the different billing export types into a package and add tests withtestthat\nMoving our scripts into S7 classes makes it easier for us to gather all of our billing export code into an R package. This in turn makes it easier to enable all of the other things available to R packages, like documentation with {roxygen2} and {pkgdown}, testing with {testthat}, and more. Let’s dwell on the testing bit for a minute. We could bundle our scripts into an R package, too, like in inst/scripts. This would be fine, but you never really get to test the full script in your test suite, just the functions you export in the package. By converting the scripts to S7 classes, the entire program becomes an R object, making every part of it amenable to your testing framework. This is a powerful thing."
-  },
-  {
-    "objectID": "posts/this-r-script-could-ve-been-an-s7-class/index.html#conclusion",
-    "href": "posts/this-r-script-could-ve-been-an-s7-class/index.html#conclusion",
-    "title": "This R script could’ve been an S7 class",
-    "section": "Conclusion",
-    "text": "Conclusion\nThis side project made it clear to me that {S7} is worth a try. The ability to bundle related data into objects and operate on them with generic functions creates a whole lot of opportunity for R developers looking to solve complex problems. If you’ve used {S7} in your own work, I’d like to hear about it; if you haven’t, I encourage you to take it out for a spin, and let me know what you think."
-  },
-  {
     "objectID": "posts/performance-optimization-for-plumber-apis-async/index.html",
     "href": "posts/performance-optimization-for-plumber-apis-async/index.html",
     "title": "Performance Optimization for Plumber APIs: Async",
@@ -333,6 +249,55 @@
     "href": "index.html",
     "title": "Blog",
     "section": "",
-    "text": "This R script could’ve been an S7 class\n\n\n\nR\n\ndata-engineering\n\n\n\nA tutorial about how to use {S7} to improve your data pipelines.\n\n\n\n\n\nJan 19, 2026\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nTaming gnarly nested data with purrr::modify_tree\n\n\n\nR\n\n\n\nA tutorial for using purrr::modify_tree effectively.\n\n\n\n\n\nJan 5, 2026\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nManaging AWS services in R with {paws}\n\n\n\nR\n\naws\n\n\n\nSee how the R package {paws} can help you automate AWS workflows.\n\n\n\n\n\nDec 22, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nPerformance Optimization for Plumber APIs: Long Running Jobs\n\n\n\nR\n\nweb\n\nperformance\n\n\n\nLearn strategies to improve API performance where long running tasks are involved.\n\n\n\n\n\nDec 8, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nBurst Reporting On A Budget\n\n\n\nR\n\n\n\nCreating a burst reporting application using R, Quarto, and Typst.\n\n\n\n\n\nNov 24, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nPerformance Optimization for Plumber APIs: Async\n\n\n\nR\n\nweb\n\nperformance\n\n\n\nHow async programming can improve API performance.\n\n\n\n\n\nNov 9, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nPerformance Optimization for Plumber APIs: Serialization\n\n\n\nR\n\nweb\n\nperformance\n\n\n\nA series of posts about making your Plumber APIs production ready.\n\n\n\n\n\nOct 4, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nWelcome To My Blog\n\n\n\nnews\n\n\n\n\n\n\n\n\n\nSep 24, 2025\n\n\nJoe Kirincic\n\n\n\n\n\nNo matching items"
+    "text": "Taming gnarly nested data with purrr::modify_tree\n\n\n\nR\n\n\n\nA tutorial for using purrr::modify_tree effectively.\n\n\n\n\n\nJan 5, 2026\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nPerformance Optimization for Plumber APIs: Long Running Jobs\n\n\n\nR\n\nweb\n\nperformance\n\n\n\nLearn strategies to improve API performance where long running tasks are involved.\n\n\n\n\n\nDec 8, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nBurst Reporting On A Budget\n\n\n\nR\n\n\n\nCreating a burst reporting application using R, Quarto, and Typst.\n\n\n\n\n\nNov 24, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nPerformance Optimization for Plumber APIs: Async\n\n\n\nR\n\nweb\n\nperformance\n\n\n\nHow async programming can improve API performance.\n\n\n\n\n\nNov 9, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nPerformance Optimization for Plumber APIs: Serialization\n\n\n\nR\n\nweb\n\nperformance\n\n\n\nA series of posts about making your Plumber APIs production ready.\n\n\n\n\n\nOct 4, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nWelcome To My Blog\n\n\n\nnews\n\n\n\n\n\n\n\n\n\nSep 24, 2025\n\n\nJoe Kirincic\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html",
+    "href": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html",
+    "title": "Use R in your Dagster pipelines with {dagsterpipes}",
+    "section": "",
+    "text": "I’m a big fan of Dagster for managing data pipelines, but I’m also a huge fan of R for writing data pipelines, training machine learning models, and so on. Recently, I got tired of not them not being able to combine well together, so I set out to fix that. These efforts resulted in a new R package called {dagsterpipes}. In this post, I’m going to show how you can now leverage R inside of Dagster using the package."
+  },
+  {
+    "objectID": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html#introduction",
+    "href": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html#introduction",
+    "title": "Use R in your Dagster pipelines with {dagsterpipes}",
+    "section": "",
+    "text": "I’m a big fan of Dagster for managing data pipelines, but I’m also a huge fan of R for writing data pipelines, training machine learning models, and so on. Recently, I got tired of not them not being able to combine well together, so I set out to fix that. These efforts resulted in a new R package called {dagsterpipes}. In this post, I’m going to show how you can now leverage R inside of Dagster using the package."
+  },
+  {
+    "objectID": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html#prerequisites",
+    "href": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html#prerequisites",
+    "title": "Use R in your Dagster pipelines with {dagsterpipes}",
+    "section": "Prerequisites",
+    "text": "Prerequisites\nTo follow along with this post, you should understand the following.\n\nDagster: what it is, how to set it up., etc.\nDocker"
+  },
+  {
+    "objectID": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html#what-were-building",
+    "href": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html#what-were-building",
+    "title": "Use R in your Dagster pipelines with {dagsterpipes}",
+    "section": "What we’re building",
+    "text": "What we’re building\nWe’re going to create a new asset in our Dagster project that uses R for processing the data. Specifically, we’re going to have an asset that does some basic ETL taking data from a database and plopping it into a new database table. Apart from being able to materialize a Dagster asset written in R, we also want R to communicate progress of the run with the Dagster instance. We also want to display metadata related to the run when the asset is done materializing.\nWhat we’re building needs to materialize an asset using R code. In addition, we want what we’ve built to be able to communicate with Dagster so we get the same observability we love about it."
+  },
+  {
+    "objectID": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html#dagster-pipes-protocol",
+    "href": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html#dagster-pipes-protocol",
+    "title": "Use R in your Dagster pipelines with {dagsterpipes}",
+    "section": "Dagster Pipes Protocol",
+    "text": "Dagster Pipes Protocol\nIn 2024, Dagster announced their new Pipes protocol for language agnostic workflows (TODO: check date). Maybe you have some legacy Java service that updates data in a warehouse; maybe the job is written in Spark, or in our case, R. The Dagster Pipes Protocol allows Dagster to communicate with any language that implements the protocol. So to make R runnable inside of Dagster, we need an implementation of the Pipes protocol for R. That’s where the package {dagsterpipes} comes in; it provides the Pipes protocol implementation we need. The specifics of how it achieves this aren’t as important as what it enables. Let’s see some R code running in Dagster."
+  },
+  {
+    "objectID": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html#our-first-r-based-asset",
+    "href": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html#our-first-r-based-asset",
+    "title": "Use R in your Dagster pipelines with {dagsterpipes}",
+    "section": "Our first R-based asset",
+    "text": "Our first R-based asset\nOur R asset is going to update a table inside of our Postgres database. First, it runs a SQL query to extract some data, and if there’s rows, it drops the relevant records in the target table and inserts the rows returned from the SQL query. Consider the R code below.\n\nlibrary(dagsterpipes)\nlibrary(DBI)\n\nctx &lt;- open_dagster_pipes()\n\nctx$log(\"Starting ETL process.\")\n\nctx$log(\"Fetching data from DB.\")\n\ncon &lt;- dbConnect(\n  drv = RPostgres::Postgres(),\n  dbname = Sys.getenv(\"DB_NAME\"),\n  host = Sys.getenv(\"DB_HOST\"),\n  port = Sys.getenv(\"DB_PORT\"),\n  user = Sys.getenv(\"DB_USER\"),\n  password = Sys.getenv(\"DB_PASSWORD\")\n)\n\ndf &lt;- mtcars\n\nctx$log(\"Fetched data from DB.\")\n\ndbWriteTable(con, name = \"mtcars\", value = df, overwrite = TRUE)\n\nctx$log(\"Finished ETL process.\")\n\nctx$report_asset_materialization(\n  metadata = list(\n    row_count = pipes_metadata_value(nrow(df), \"int\")\n  )\n)\n\nctx$log(\"Process completed.\")\n\nctx$close()\n\nThe big thing here is the ctx variable we get from calling open_dagster_pipes. The context is where Dagster shoves information related to the run like partition keys and other environment variables. On the R-side, we can log information about the run that gets sent back to Dagster and shown inside of the run details page. How does this look on the Python side? Pretty simple. Consider the code below.\n\nimport dagster as dg\nfrom pathlib import Path\n\nR_ETL_SCRIPT = Path(__file__).parent.joinpath(\"etl.R\")\n\n@dg.asset()\ndef r_asset(context: dg.AssetExecutionContext, pipes_subprocess_client: dg.PipesSubprocessClient):\n    return pipes_subprocess_client.run(\n        command=[\"Rscript\", str(R_ETL_SCRIPT)],\n        context=context\n    ).get_materialize_result()\n\nThe most important thing to note in this code is a new Dagster resource we’re passing as argument to the asset function, a PipesSubprocessClient object. This object simply invokes Rscript &lt;OUR_R_SCRIPT&gt;."
+  },
+  {
+    "objectID": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html#conclusion",
+    "href": "posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/index.html#conclusion",
+    "title": "Use R in your Dagster pipelines with {dagsterpipes}",
+    "section": "Conclusion",
+    "text": "Conclusion\nNow your Dagster projects can benefit from the powerful facilities throughout the R ecosystem. Go nuts."
   }
 ]

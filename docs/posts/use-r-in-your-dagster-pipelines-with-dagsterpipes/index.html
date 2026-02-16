@@ -6,8 +6,11 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="author" content="Joe Kirincic">
+<meta name="dcterms.date" content="2026-02-15">
+<meta name="description" content="Learn how R can now be used seamlessly within Dagster projects.">
 
-<title>Blog – Joe Kirincic</title>
+<title>Use R in your Dagster pipelines with {dagsterpipes} – Joe Kirincic</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -20,28 +23,61 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="site_libs/quarto-nav/headroom.min.js"></script>
-<script src="site_libs/clipboard/clipboard.min.js"></script>
-<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="site_libs/quarto-search/fuse.min.js"></script>
-<script src="site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="./">
-<script src="site_libs/quarto-listing/list.min.js"></script>
-<script src="site_libs/quarto-listing/quarto-listing.js"></script>
-<script src="site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/popper.min.js"></script>
-<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="site_libs/quarto-html/anchor.min.js"></script>
-<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-e1a5c8363afafaef2c763b6775fbf3ca.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-c1fac2584b48ed01fb6e278e36375074.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-e1a5c8363afafaef2c763b6775fbf3ca.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-c1fac2584b48ed01fb6e278e36375074.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -69,77 +105,20 @@ ul.task-list li input[type="checkbox"] {
     "search-label": "Search"
   }
 }</script>
-<script>
+<meta name="quarto:status" content="draft">
 
-  window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-listing .list');
-    if (!listingTargetEl) {
-      // No listing discovered, do not attach.
-      return; 
-    }
 
-    const options = {
-      valueNames: ['listing-date','listing-title','listing-author','listing-image','listing-description','listing-categories',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
-      
-      searchColumns: ["listing-date","listing-title","listing-author","listing-image","listing-description","listing-categories"],
-    };
+<link rel="stylesheet" href="../../styles.css">
+</head>
 
-    window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-listing'] = new List('listing-listing', options);
-
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  });
-
-  window.addEventListener('hashchange',() => {
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  })
-  </script>
-
-  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
-
-<script type="text/javascript">
-const typesetMath = (el) => {
-  if (window.MathJax) {
-    // MathJax Typeset
-    window.MathJax.typeset([el]);
-  } else if (window.katex) {
-    // KaTeX Render
-    var mathElements = el.getElementsByClassName("math");
-    var macros = [];
-    for (var i = 0; i < mathElements.length; i++) {
-      var texText = mathElements[i].firstChild;
-      if (mathElements[i].tagName == "SPAN") {
-        window.katex.render(texText.data, mathElements[i], {
-          displayMode: mathElements[i].classList.contains('display'),
-          throwOnError: false,
-          macros: macros,
-          fleqn: false
-        });
-      }
-    }
-  }
-}
-window.Quarto = {
-  typesetMath
-};
-</script>
-
-<link rel="stylesheet" href="styles.css">
-<link rel="alternate" type="application/rss+xml" title="Joe Kirincic" href="index.xml" data-external="1"></head>
-
-<body class="nav-fixed quarto-light">
+<body class="nav-fixed fullcontent quarto-light">
 
 <div id="quarto-search-results"></div>
-  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+  <header id="quarto-header" class="headroom fixed-top quarto-banner"><div id="quarto-draft-alert" class="alert alert-warning"><i class="bi bi-pencil-square"></i>Draft</div>
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a class="navbar-brand" href="./index.html">
+    <a class="navbar-brand" href="../../index.html">
     <span class="navbar-title">Joe Kirincic</span>
     </a>
   </div>
@@ -150,7 +129,7 @@ window.Quarto = {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll ms-auto">
   <li class="nav-item">
-    <a class="nav-link" href="./about.html"> 
+    <a class="nav-link" href="../../about.html"> 
 <span class="menu-text">About</span></a>
   </li>  
   <li class="nav-item compact">
@@ -178,234 +157,138 @@ window.Quarto = {
 <!-- content -->
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
-    <div class="quarto-title column-page-left">
-      <h1 class="title">Blog</h1>
-                      </div>
+    <div class="quarto-title column-body">
+      <h1 class="title">Use R in your Dagster pipelines with <code>{dagsterpipes}</code></h1>
+                  <div>
+        <div class="description">
+          Learn how R can now be used seamlessly within Dagster projects.
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">R</div>
+                <div class="quarto-category">dagster</div>
+                <div class="quarto-category">data-engineering</div>
+              </div>
+                  </div>
   </div>
     
   
-  <div class="quarto-title-meta column-page-left">
+  <div class="quarto-title-meta">
 
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Joe Kirincic </p>
+            </div>
+    </div>
       
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">February 15, 2026</p>
+      </div>
+    </div>
     
       
     </div>
     
   
-  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-full page-navbar">
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
 <!-- margin-sidebar -->
-    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        
-    <h5 class="quarto-listing-category-title">Categories</h5><div class="quarto-listing-category category-default"><div class="category" data-category="">All <span class="quarto-category-count">(6)</span></div><div class="category" data-category="bmV3cw==">news <span class="quarto-category-count">(1)</span></div><div class="category" data-category="cGVyZm9ybWFuY2U=">performance <span class="quarto-category-count">(3)</span></div><div class="category" data-category="Ug==">R <span class="quarto-category-count">(5)</span></div><div class="category" data-category="d2Vi">web <span class="quarto-category-count">(3)</span></div></div></div>
+    
 <!-- main -->
-<main class="content quarto-banner-title-block column-page-left" id="quarto-document-content">
+<main class="content quarto-banner-title-block" id="quarto-document-content">
 
 
 
 
 
-
-
-
-
-<div class="quarto-listing quarto-listing-container-default" id="listing-listing">
-<div class="list quarto-listing-default">
-<div class="quarto-post image-right" data-index="0" data-categories="Ug==" data-listing-date-sort="1767589200000" data-listing-file-modified-sort="1767616534608" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="18" data-listing-word-count-sort="3585">
-<div class="thumbnail"><a href="./posts/managing-gnarly-nested-data-with-purrr-modify-tree/index.html" class="no-external">
-
-<img loading="lazy" src="./posts/managing-gnarly-nested-data-with-purrr-modify-tree/thumbnail.jpeg" class="thumbnail-image">
-
-</a></div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/managing-gnarly-nested-data-with-purrr-modify-tree/index.html" class="no-external">Taming gnarly nested data with <code>purrr::modify_tree</code></a>
-</h3>
-<div class="listing-categories">
-
-<div class="listing-category" onclick="window.quartoListingCategory('Ug=='); return false;">R</div>
-
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
+<p>I’m a big fan of Dagster for managing data pipelines, but I’m also a huge fan of R for writing data pipelines, training machine learning models, and so on. Recently, I got tired of not them not being able to combine well together, so I set out to fix that. These efforts resulted in a new R package called <a href="https://github.com/joekirincic/dagsterpipes"><code>{dagsterpipes}</code></a>. In this post, I’m going to show how you can now leverage R inside of Dagster using the package.</p>
+</section>
+<section id="prerequisites" class="level2">
+<h2 class="anchored" data-anchor-id="prerequisites">Prerequisites</h2>
+<p>To follow along with this post, you should understand the following.</p>
+<ul>
+<li>Dagster: what it is, how to set it up., etc.</li>
+<li>Docker</li>
+</ul>
+</section>
+<section id="what-were-building" class="level2">
+<h2 class="anchored" data-anchor-id="what-were-building">What we’re building</h2>
+<p>We’re going to create a new asset in our Dagster project that uses R for processing the data. Specifically, we’re going to have an asset that does some basic ETL taking data from a database and plopping it into a new database table. Apart from being able to materialize a Dagster asset written in R, we also want R to communicate progress of the run with the Dagster instance. We also want to display metadata related to the run when the asset is done materializing.</p>
+<p>What we’re building needs to materialize an asset using R code. In addition, we want what we’ve built to be able to communicate with Dagster so we get the same observability we love about it.</p>
+</section>
+<section id="dagster-pipes-protocol" class="level2">
+<h2 class="anchored" data-anchor-id="dagster-pipes-protocol">Dagster Pipes Protocol</h2>
+<p>In 2024, Dagster announced their new Pipes protocol for language agnostic workflows (TODO: check date). Maybe you have some legacy Java service that updates data in a warehouse; maybe the job is written in Spark, or in our case, R. The Dagster Pipes Protocol allows Dagster to communicate with any language that implements the protocol. So to make R runnable inside of Dagster, we need an implementation of the Pipes protocol for R. That’s where the package <code>{dagsterpipes}</code> comes in; it provides the Pipes protocol implementation we need. The specifics of how it achieves this aren’t as important as what it enables. Let’s see some R code running in Dagster.</p>
+</section>
+<section id="our-first-r-based-asset" class="level2">
+<h2 class="anchored" data-anchor-id="our-first-r-based-asset">Our first R-based asset</h2>
+<p>Our R asset is going to update a table inside of our Postgres database. First, it runs a SQL query to extract some data, and if there’s rows, it drops the relevant records in the target table and inserts the rows returned from the SQL query. Consider the R code below.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dagsterpipes)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(DBI)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>ctx <span class="ot">&lt;-</span> <span class="fu">open_dagster_pipes</span>()</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Starting ETL process."</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Fetching data from DB."</span>)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>con <span class="ot">&lt;-</span> <span class="fu">dbConnect</span>(</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">drv =</span> RPostgres<span class="sc">::</span><span class="fu">Postgres</span>(),</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">dbname =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_NAME"</span>),</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">host =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_HOST"</span>),</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">port =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_PORT"</span>),</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">user =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_USER"</span>),</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">password =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_PASSWORD"</span>)</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> mtcars</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Fetched data from DB."</span>)</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="fu">dbWriteTable</span>(con, <span class="at">name =</span> <span class="st">"mtcars"</span>, <span class="at">value =</span> df, <span class="at">overwrite =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Finished ETL process."</span>)</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">report_asset_materialization</span>(</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">metadata =</span> <span class="fu">list</span>(</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">row_count =</span> <span class="fu">pipes_metadata_value</span>(<span class="fu">nrow</span>(df), <span class="st">"int"</span>)</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Process completed."</span>)</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">close</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="delink listing-description"><a href="./posts/managing-gnarly-nested-data-with-purrr-modify-tree/index.html" class="no-external">
-<p>A tutorial for using <code>purrr::modify_tree</code> effectively.</p>
-</a></div>
+<p>The big thing here is the <code>ctx</code> variable we get from calling <code>open_dagster_pipes</code>. The context is where Dagster shoves information related to the run like partition keys and other environment variables. On the R-side, we can log information about the run that gets sent back to Dagster and shown inside of the run details page. How does this look on the Python side? Pretty simple. Consider the code below.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> dagster <span class="im">as</span> dg</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>R_ETL_SCRIPT <span class="op">=</span> Path(<span class="va">__file__</span>).parent.joinpath(<span class="st">"etl.R"</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="at">@dg.asset</span>()</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> r_asset(context: dg.AssetExecutionContext, pipes_subprocess_client: dg.PipesSubprocessClient):</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> pipes_subprocess_client.run(</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        command<span class="op">=</span>[<span class="st">"Rscript"</span>, <span class="bu">str</span>(R_ETL_SCRIPT)],</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        context<span class="op">=</span>context</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    ).get_materialize_result()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="metadata">
-<a href="./posts/managing-gnarly-nested-data-with-purrr-modify-tree/index.html" class="no-external">
-<div class="listing-date">
-Jan 5, 2026
-</div>
-<div class="listing-author">
-Joe Kirincic
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="1" data-categories="UiUyQ3dlYiUyQ3BlcmZvcm1hbmNl" data-listing-date-sort="1765170000000" data-listing-file-modified-sort="1766367718122" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="17" data-listing-word-count-sort="3348">
-<div class="thumbnail"><a href="./posts/performance-optimization-for-plumber-apis-long-running-jobs/index.html" class="no-external">
+<p>The most important thing to note in this code is a new Dagster resource we’re passing as argument to the asset function, a <code>PipesSubprocessClient</code> object. This object simply invokes <code>Rscript &lt;OUR_R_SCRIPT&gt;</code>.</p>
+</section>
+<section id="conclusion" class="level2">
+<h2 class="anchored" data-anchor-id="conclusion">Conclusion</h2>
+<p>Now your Dagster projects can benefit from the powerful facilities throughout the R ecosystem. Go nuts.</p>
 
-<img loading="lazy" src="./posts/performance-optimization-for-plumber-apis-long-running-jobs/thumbnail.jpg" class="thumbnail-image">
 
-</a></div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/performance-optimization-for-plumber-apis-long-running-jobs/index.html" class="no-external">Performance Optimization for Plumber APIs: Long Running Jobs</a>
-</h3>
-<div class="listing-categories">
+</section>
 
-<div class="listing-category" onclick="window.quartoListingCategory('Ug=='); return false;">R</div>
-
-<div class="listing-category" onclick="window.quartoListingCategory('d2Vi'); return false;">web</div>
-
-<div class="listing-category" onclick="window.quartoListingCategory('cGVyZm9ybWFuY2U='); return false;">performance</div>
-
-</div>
-<div class="delink listing-description"><a href="./posts/performance-optimization-for-plumber-apis-long-running-jobs/index.html" class="no-external">
-<p>Learn strategies to improve API performance where long running tasks are involved.</p>
-</a></div>
-</div>
-<div class="metadata">
-<a href="./posts/performance-optimization-for-plumber-apis-long-running-jobs/index.html" class="no-external">
-<div class="listing-date">
-Dec 8, 2025
-</div>
-<div class="listing-author">
-Joe Kirincic
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="2" data-categories="Ug==" data-listing-date-sort="1763960400000" data-listing-file-modified-sort="1770498991812" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="15" data-listing-word-count-sort="2990">
-<div class="thumbnail"><a href="./posts/burst-reporting-on-a-budget/index.html" class="no-external">
-
-<img loading="lazy" src="./posts/burst-reporting-on-a-budget/thumbnail.jpg" class="thumbnail-image">
-
-</a></div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/burst-reporting-on-a-budget/index.html" class="no-external">Burst Reporting On A Budget</a>
-</h3>
-<div class="listing-categories">
-
-<div class="listing-category" onclick="window.quartoListingCategory('Ug=='); return false;">R</div>
-
-</div>
-<div class="delink listing-description"><a href="./posts/burst-reporting-on-a-budget/index.html" class="no-external">
-<p>Creating a burst reporting application using R, Quarto, and Typst.</p>
-</a></div>
-</div>
-<div class="metadata">
-<a href="./posts/burst-reporting-on-a-budget/index.html" class="no-external">
-<div class="listing-date">
-Nov 24, 2025
-</div>
-<div class="listing-author">
-Joe Kirincic
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="3" data-categories="UiUyQ3dlYiUyQ3BlcmZvcm1hbmNl" data-listing-date-sort="1762664400000" data-listing-file-modified-sort="1766367718121" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="9" data-listing-word-count-sort="1706">
-<div class="thumbnail"><a href="./posts/performance-optimization-for-plumber-apis-async/index.html" class="no-external">
-
-<img loading="lazy" src="./posts/performance-optimization-for-plumber-apis-async/thumbnail.jpg" class="thumbnail-image">
-
-</a></div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/performance-optimization-for-plumber-apis-async/index.html" class="no-external">Performance Optimization for Plumber APIs: Async</a>
-</h3>
-<div class="listing-categories">
-
-<div class="listing-category" onclick="window.quartoListingCategory('Ug=='); return false;">R</div>
-
-<div class="listing-category" onclick="window.quartoListingCategory('d2Vi'); return false;">web</div>
-
-<div class="listing-category" onclick="window.quartoListingCategory('cGVyZm9ybWFuY2U='); return false;">performance</div>
-
-</div>
-<div class="delink listing-description"><a href="./posts/performance-optimization-for-plumber-apis-async/index.html" class="no-external">
-<p>How async programming can improve API performance.</p>
-</a></div>
-</div>
-<div class="metadata">
-<a href="./posts/performance-optimization-for-plumber-apis-async/index.html" class="no-external">
-<div class="listing-date">
-Nov 9, 2025
-</div>
-<div class="listing-author">
-Joe Kirincic
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="4" data-categories="UiUyQ3dlYiUyQ3BlcmZvcm1hbmNl" data-listing-date-sort="1759550400000" data-listing-file-modified-sort="1762703766019" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="8" data-listing-word-count-sort="1419">
-<div class="thumbnail"><a href="./posts/performance-optimization-for-plumber-apis-serialization/index.html" class="no-external">
-
-<img loading="lazy" src="./posts/performance-optimization-for-plumber-apis-serialization/serialization-thumbnail.jpg" class="thumbnail-image">
-
-</a></div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/performance-optimization-for-plumber-apis-serialization/index.html" class="no-external">Performance Optimization for Plumber APIs: Serialization</a>
-</h3>
-<div class="listing-categories">
-
-<div class="listing-category" onclick="window.quartoListingCategory('Ug=='); return false;">R</div>
-
-<div class="listing-category" onclick="window.quartoListingCategory('d2Vi'); return false;">web</div>
-
-<div class="listing-category" onclick="window.quartoListingCategory('cGVyZm9ybWFuY2U='); return false;">performance</div>
-
-</div>
-<div class="delink listing-description"><a href="./posts/performance-optimization-for-plumber-apis-serialization/index.html" class="no-external">
-<p>A series of posts about making your Plumber APIs production ready.</p>
-</a></div>
-</div>
-<div class="metadata">
-<a href="./posts/performance-optimization-for-plumber-apis-serialization/index.html" class="no-external">
-<div class="listing-date">
-Oct 4, 2025
-</div>
-<div class="listing-author">
-Joe Kirincic
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="5" data-categories="bmV3cw==" data-listing-date-sort="1758686400000" data-listing-file-modified-sort="1759594278720" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="457">
-<div class="thumbnail"><a href="./posts/welcome/index.html" class="no-external">
-
-<p class="card-img-top"><img src="posts/welcome/thumbnail.jpg"  class="thumbnail-image card-img"/></p>
-
-</a></div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/welcome/index.html" class="no-external">Welcome To My Blog</a>
-</h3>
-<div class="listing-categories">
-
-<div class="listing-category" onclick="window.quartoListingCategory('bmV3cw=='); return false;">news</div>
-
-</div>
-<div class="delink listing-description"><a href="./posts/welcome/index.html" class="no-external">
-Welcome to my corner of the web. I like to think about a lot of things, but my memory’s crap, so I’m putting this blog together to refine and organize my thoughts. I have a…
-</a></div>
-</div>
-<div class="metadata">
-<a href="./posts/welcome/index.html" class="no-external">
-<div class="listing-date">
-Sep 24, 2025
-</div>
-<div class="listing-author">
-Joe Kirincic
-</div>
-</a>
-</div>
-</div>
-</div>
-<div class="listing-no-matching d-none">No matching items</div>
-</div></main> <!-- /main -->
+</main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     const icon = "";

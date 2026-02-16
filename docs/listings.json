@@ -2,9 +2,7 @@
   {
     "listing": "/index.html",
     "items": [
-      "/posts/this-r-script-could-ve-been-an-s7-class/index.html",
       "/posts/managing-gnarly-nested-data-with-purrr-modify-tree/index.html",
-      "/posts/managing-aws-services-in-r-with-paws/index.html",
       "/posts/performance-optimization-for-plumber-apis-long-running-jobs/index.html",
       "/posts/burst-reporting-on-a-budget/index.html",
       "/posts/performance-optimization-for-plumber-apis-async/index.html",
