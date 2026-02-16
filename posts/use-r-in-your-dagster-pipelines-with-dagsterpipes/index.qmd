@@ -4,7 +4,7 @@ description: "Learn how R can now be used seamlessly within Dagster projects."
 author: "Joe Kirincic"
 date: "2026-02-15"
 categories: [R,dagster,data-engineering]
-image: ""
+image: "thumbnail.png"
 image-alt: ""
 draft: true
 ---
