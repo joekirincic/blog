@@ -294,13 +294,6 @@
     "text": "Footnotes\n\n\nIn practice, it’s probably going to be slightly less than that because of interactions between external systems, your OS’s CPU scheduler, and other low level details beyond the scope of this post.↩︎\nI’m going to say this a lot during this series. There aren’t a lot of black and white answers with performance optimization. Something may work great for one team’s app that’s similar to yours, but when you try it out, it backfires. You need to test things out to really know if it’s true for your case.↩︎"
   },
   {
-    "objectID": "index.html",
-    "href": "index.html",
-    "title": "Blog",
-    "section": "",
-    "text": "Taming gnarly nested data with purrr::modify_tree\n\n\n\nR\n\n\n\nA tutorial for using purrr::modify_tree effectively.\n\n\n\n\n\nJan 5, 2026\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nPerformance Optimization for Plumber APIs: Long Running Jobs\n\n\n\nR\n\nweb\n\nperformance\n\n\n\nLearn strategies to improve API performance where long running tasks are involved.\n\n\n\n\n\nDec 8, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nBurst Reporting On A Budget\n\n\n\nR\n\n\n\nCreating a burst reporting application using R, Quarto, and Typst.\n\n\n\n\n\nNov 24, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nPerformance Optimization for Plumber APIs: Async\n\n\n\nR\n\nweb\n\nperformance\n\n\n\nHow async programming can improve API performance.\n\n\n\n\n\nNov 9, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nPerformance Optimization for Plumber APIs: Serialization\n\n\n\nR\n\nweb\n\nperformance\n\n\n\nA series of posts about making your Plumber APIs production ready.\n\n\n\n\n\nOct 4, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nWelcome To My Blog\n\n\n\nnews\n\n\n\n\n\n\n\n\n\nSep 24, 2025\n\n\nJoe Kirincic\n\n\n\n\n\nNo matching items"
-  },
-  {
     "objectID": "posts/this-r-script-could-ve-been-an-s7-class/index.html",
     "href": "posts/this-r-script-could-ve-been-an-s7-class/index.html",
     "title": "This R script could’ve been an S7 class",
@@ -390,5 +383,12 @@
     "title": "This R script could’ve been an S7 class",
     "section": "Footnotes",
     "text": "Footnotes\n\n\nYou might think to simply remove the column entirely, but the truth is that many systems you’ll integrate with have rigid schemas that don’t allow for omitting columns completely. Instead, we supply the column with no content in it.↩︎\nThink function overloading in languages like C++.↩︎\nDidn’t I just say methods were functions bound to objects? Confusing, right? Naming things is hard, even for the smart folks that come up with this stuff.↩︎"
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Blog",
+    "section": "",
+    "text": "Use R in your Dagster pipelines with {dagsterpipes}\n\n\n\nR\n\ndagster\n\ndata-engineering\n\n\n\nLearn how R can now be used seamlessly within Dagster projects.\n\n\n\n\n\nFeb 15, 2026\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nThis R script could’ve been an S7 class\n\n\n\nR\n\ndata-engineering\n\n\n\nA tutorial about how to use {S7} to improve your data pipelines.\n\n\n\n\n\nJan 19, 2026\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nTaming gnarly nested data with purrr::modify_tree\n\n\n\nR\n\n\n\nA tutorial for using purrr::modify_tree effectively.\n\n\n\n\n\nJan 5, 2026\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nManaging AWS services in R with {paws}\n\n\n\nR\n\naws\n\n\n\nSee how the R package {paws} can help you automate AWS workflows.\n\n\n\n\n\nDec 22, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nPerformance Optimization for Plumber APIs: Long Running Jobs\n\n\n\nR\n\nweb\n\nperformance\n\n\n\nLearn strategies to improve API performance where long running tasks are involved.\n\n\n\n\n\nDec 8, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nBurst Reporting On A Budget\n\n\n\nR\n\n\n\nCreating a burst reporting application using R, Quarto, and Typst.\n\n\n\n\n\nNov 24, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nPerformance Optimization for Plumber APIs: Async\n\n\n\nR\n\nweb\n\nperformance\n\n\n\nHow async programming can improve API performance.\n\n\n\n\n\nNov 9, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nPerformance Optimization for Plumber APIs: Serialization\n\n\n\nR\n\nweb\n\nperformance\n\n\n\nA series of posts about making your Plumber APIs production ready.\n\n\n\n\n\nOct 4, 2025\n\n\nJoe Kirincic\n\n\n\n\n\n\n\n\n\n\n\n\nWelcome To My Blog\n\n\n\nnews\n\n\n\n\n\n\n\n\n\nSep 24, 2025\n\n\nJoe Kirincic\n\n\n\n\n\nNo matching items"
   }
 ]
