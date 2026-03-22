@@ -6,7 +6,7 @@ date: "2026-03-22"
 categories: [R,data-engineering]
 image: "thumbnail.jpeg"
 image-alt: ""
-draft: true
+draft: fals
 ---
 
 ## Introduction
