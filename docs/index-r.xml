@@ -10,7 +10,18 @@
 <atom:link href="https://joekirincic.com/index-r.xml" rel="self" type="application/rss+xml"/>
 <description></description>
 <generator>quarto-1.7.31</generator>
-<lastBuildDate>Mon, 05 Jan 2026 05:00:00 GMT</lastBuildDate>
+<lastBuildDate>Sun, 22 Mar 2026 04:00:00 GMT</lastBuildDate>
+<item>
+  <title>This R script could’ve been an S7 class</title>
+  <dc:creator>Joe Kirincic</dc:creator>
+  <link>https://joekirincic.com/posts/this-r-script-could-ve-been-an-s7-class/</link>
+  <description><![CDATA[ A tutorial about how to use {S7} to improve your data pipelines. ]]></description>
+  <category>R</category>
+  <category>data-engineering</category>
+  <guid>https://joekirincic.com/posts/this-r-script-could-ve-been-an-s7-class/</guid>
+  <pubDate>Sun, 22 Mar 2026 04:00:00 GMT</pubDate>
+  <media:content url="https://joekirincic.com/posts/this-r-script-could-ve-been-an-s7-class/thumbnail.jpeg" medium="image" type="image/jpeg"/>
+</item>
 <item>
   <title>Taming gnarly nested data with purrr::modify_tree</title>
   <dc:creator>Joe Kirincic</dc:creator>
