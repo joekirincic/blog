@@ -391,7 +391,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>Let’s look at some other arguments that go into the <code>new_class</code> function. We give our class a <code>name</code>, and a named list of <code>properties</code>, where each property is created with a known type (e.g.&nbsp;<code>data = new_property(class = class_data.frame)</code>). Properties are similar to slots in S4 classes. Specifying the type is helpful because S7 classes will error if you try to set a property to a type different from what’s declared. For simpler objects, this might not seem like a big deal, but when you’re dealing with complex S7 objects, bugs can become harder to diagnose when something of the wrong type gets passed to a property. Now that we have our abstract class, we can create the classes that will inherit from it to represent each of our billing vendors.</p>
 </section>
 <section id="the-vendor-classes" class="level3">
-<h3 class="anchored" data-anchor-id="the-vendor-classes">The Vendor classes</h3>
+<h3 class="anchored" data-anchor-id="the-vendor-classes">The vendor classes</h3>
 <div class="sourceCode" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>PopularVendorBillingExport <span class="ot">&lt;-</span> <span class="fu">new_class</span>(</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">name =</span> <span class="st">"PopularVendorBillingExport"</span>,</span>

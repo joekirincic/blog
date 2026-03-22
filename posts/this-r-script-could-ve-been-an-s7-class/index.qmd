@@ -213,7 +213,7 @@ There's a few things going on in the code here. When we set `abstract = TRUE` in
 
 Let's look at some other arguments that go into the `new_class` function. We give our class a `name`, and a named list of `properties`, where each property is created with a known type (e.g. `data = new_property(class = class_data.frame)`). Properties are similar to slots in S4 classes. Specifying the type is helpful because S7 classes will error if you try to set a property to a type different from what's declared. For simpler objects, this might not seem like a big deal, but when you're dealing with complex S7 objects, bugs can become harder to diagnose when something of the wrong type gets passed to a property. Now that we have our abstract class, we can create the classes that will inherit from it to represent each of our billing vendors.
 
-### The Vendor classes
+### The vendor classes
 
 ``` r
 
