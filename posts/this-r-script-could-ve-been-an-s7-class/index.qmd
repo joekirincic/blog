@@ -1,0 +1,476 @@
+---
+title: "This R script could've been an S7 class"
+description: "A tutorial about how to use `{S7}` to improve your data pipelines."
+author: "Joe Kirincic"
+date: "2026-03-22"
+categories: [R,data-engineering]
+image: "thumbnail.jpeg"
+image-alt: ""
+draft: true
+---
+
+## Introduction
+
+In data engineering, a lot of pipelines start off as scripts. We iterate on them until they work, and then plug them into an orchestrator like Dagster or Airflow, and we're done. But as the number of pipelines increases, the maintenance burden grows quickly. Code gets duplicated and slightly modified, resulting in elusive bugs; if-else blocks get slapped onto scripts to change behavior as configurations evolve. There's a better way to manage this complexity. In this post, we're going to see how refactoring some R scripts into classes and generics using the `{S7}` package can make our code more extensible and composable.
+
+## What we're building
+
+We're going to take two R scripts, `popular-vendor.R` and `niche-vendor.R`, and consolidate them into one program called `billing-export.R` that generates a different flat file for each facility in a fictional healthcare dataset based on configuration data stored in a Postgres database. Our system supports integrations for two vendors.
+
+-   Popular Vendor: Popular Vendor expects a TSV file that allows options for excluding certain fields.
+
+-   Niche Vendor: Niche Vendor expects a CSV file. It has no additional configuration options but it does have constraints on certain fields.
+
+To consolidate two scripts into one, we're going to use the `{S7}` package. Note that in this post, I'll use "`{S7}`" when I'm referring to the R package, and I'll use "S7" when I'm referring to the system the R package implements. S7 is a functional OOP system where we define objects with properties and function generics/methods that operate on those objects[^1]. All of the code in this post is on GitHub [here](https://github.com/joekirincic/s7-poc).
+
+[^1]: For an excellent introduction to `{S7}`, see [this post](https://blog.djnavarro.net/posts/2024-02-25_s7/) by Danielle Navarro. Content note: the post includes discussion of sexual assault.
+
+## Our initial scripts
+
+The following code examples are the `popular-vendor.R` and `niche-vendor.R` scripts we'll be refactoring. We only present the first script in full; for the second script, we zoom in on the important differences.
+
+### `popular-vendor.R`
+
+``` r
+
+library(DBI)
+library(dplyr)
+library(purrr)
+library(stringr)
+library(lubridate)
+library(readr)
+
+dotenv::load_dot_env()
+
+con <- dbConnect(
+  drv = RPostgres::Postgres(),
+  dbname = Sys.getenv("DB_NAME"),
+  host = "localhost",
+  port = 15432,
+  user = Sys.getenv("DB_USER"),
+  password = Sys.getenv("DB_PASSWORD")
+)
+
+facility_billing_config <- tbl(con, "facility_billing_config") |>
+  filter(
+    billing_export_type == "popular-vendor"
+  ) |>
+  collect() |>
+  mutate(
+    config = map(config, ~ jsonlite::fromJSON(.x, simplifyDataFrame = FALSE))
+  )
+
+billing <- tbl(con, "billing") |>
+  collect() |>
+  inner_join(
+    facility_billing_config,
+    by = join_by(facility == facility)
+  ) |>
+  hoist(
+    .col = config,
+    exclude_medical_ind = "exclude_medical_code_field",
+    exclude_treatment_ind = "exclude_treatment_code_field"
+  ) |>
+  mutate(
+    medical_code = if_else(
+      exclude_medical_ind,
+      "",
+      medical_code
+    ),
+    treatment_code = if_else(
+      exclude_treatment_ind,
+      "",
+      treatment_code
+    )
+  ) |>
+  select(
+    -one_of(c(
+      "billing_export_type",
+      "exclude_medical_ind",
+      "exclude_treatment_ind"
+    ))
+  )
+
+TARGET_DIR <- here::here("data", "popular-vendor")
+if (!dir.exists(TARGET_DIR)) {
+  dir.create(TARGET_DIR)
+}
+
+billing |>
+  group_by(
+    facility
+  ) |>
+  group_walk(
+    \(d, g) {
+      TARGET_FILE <- file.path(
+        TARGET_DIR,
+        sprintf("%s.tsv", tolower(g$facility))
+      )
+      write_tsv(
+        d,
+        file = TARGET_FILE,
+        na = "",
+        append = FALSE
+      )
+    }
+  )
+```
+
+### `niche-vendor.R`
+
+``` r
+
+# ... Similar code to popular-vendor.R...
+
+validate_date <- function(d) {
+  facility <- pluck(d, "facility", 1)
+  bad_rows <- filter(d, date_constraint_violated_ind)
+  assertthat::validate_that(
+    {
+      nrow(bad_rows) == 0
+    },
+    msg = sprintf(
+      "Skipping facility %s: %i rows violate date constraint.",
+      facility,
+      nrow(bad_rows)
+    )
+  )
+}
+
+TARGET_DIR <- here::here("data", "niche-vendor")
+if (!dir.exists(TARGET_DIR)) {
+  dir.create(TARGET_DIR)
+}
+
+billing |>
+  group_by(
+    facility
+  ) |>
+  group_walk(
+    \(d, g) {
+      TARGET_FILE <- file.path(
+        TARGET_DIR,
+        sprintf("%s.csv", tolower(g$facility))
+      )
+      # **Important difference**: we only generate
+      # a flat file if the data passes validation.
+      tst <- validate_date(d)
+      if (!isTRUE(tst)) {
+        print(tst)
+        return()
+      }
+      write_csv(
+        d,
+        file = TARGET_FILE,
+        na = "",
+        append = FALSE
+      )
+    }
+  )
+```
+
+In `popular-vendor.R`, we create a TSV file. We check if flags for excluding certain fields are enabled, and if they are, we exclude them by replacing their contents with an empty string[^2]. In `niche-vendor.R`, we create a CSV file. We check that a certain constraint on the `date_of_service` field is satisfied, and if it isn't, we log the violation to the console and skip file generation for the facility with invalid records. Before we dive in to the rest of this post, think about how you might consolidate these two scripts into one. It's easy to imagine at least an if-else block based on `billing-export-type`, or a switch statement if we were dealing with more than two vendors. But if any of the config flags interact with each other, that'll create more branching within the program, too. Sounds gross. Let's see how `{S7}` can help us here.
+
+[^2]: You might think to simply remove the column entirely, but the truth is that many systems you'll integrate with have rigid schemas that don't allow for omitting columns completely. Instead, we supply the column with no content in it.
+
+## The `{S7}` solution
+
+### Creating our base class
+
+In our billing system, all billing exports share some common properties but differ in others. In the OOP world, we model these relationships using class inheritance. One class will serve as the base class, containing all the properties that billing exports share; other classes will then inherit from this base class and extend it with additional properties as needed. The following is our base class implementation.
+
+``` r
+
+BillingExport <- new_class(
+  name = "BillingExport",
+  properties = list(
+    data = new_property(
+      class = class_data.frame
+    ),
+    config = new_property(
+      class = class_list
+    ),
+    output_dir = new_property(
+      class = class_character
+    ),
+    file_ext = new_property(
+      class = class_character
+    ),
+    output_file = new_property(
+      getter = function(self) {
+        facility <- pluck(self@data, "facility", 1)
+        file.path(self@output_dir, sprintf("%s.%s", facility, self@file_ext))
+      }
+    )
+  ),
+  abstract = TRUE
+)
+```
+
+There's a few things going on in the code here. When we set `abstract = TRUE` in our base class definition, we're declaring that the `BillingExport` class is an abstract class. Abstract classes cannot be instantiated directly; that means that we can't do something like `x <- BillingExport(data = data)`. At first, this doesn't sound all that useful. Why create a class that can't be created? The reason is that abstract classes aren't meant to be objects; they're intended to be used as building blocks for other classes. This aligns with the ontology of the system we're making. There is no such thing as a "basic billing export"[^3], but there are a number of different billing exports that all share some basic properties.
+
+[^3]: This reminds me of Gilbert Ryle's "average tax payer" from *Concept of Mind* (1949).
+
+Let's look at some other arguments that go into the `new_class` function. We give our class a `name`, and a named list of `properties`, where each property is created with a known type (e.g. `data = new_property(class = class_data.frame)`). Properties are similar to slots in S4 classes. Specifying the type is helpful because S7 classes will error if you try to set a property to a type different from what's declared. For simpler objects, this might not seem like a big deal, but when you're dealing with complex S7 objects, bugs can become harder to diagnose when something of the wrong type gets passed to a property. Now that we have our abstract class, we can create the classes that will inherit from it to represent each of our billing vendors.
+
+### The vendor classes
+
+``` r
+
+PopularVendorBillingExport <- new_class(
+  name = "PopularVendorBillingExport",
+  parent = BillingExport,
+  properties = list(
+    config = new_property(
+      class = class_list,
+      default = list(
+        exclude_medical_code_field = FALSE,
+        exclude_treatment_code_field = FALSE
+      )
+    ),
+    file_ext = new_property(
+      class = class_character,
+      default = "tsv"
+    )
+  )
+)
+
+NicheVendorBillingExport <- new_class(
+  name = "NicheVendorBillingExport",
+  parent = BillingExport,
+  properties = list(
+    config = new_property(
+      class = class_list,
+      default = list(
+        date_constraint = FALSE
+      )
+    ),
+    file_ext = new_property(
+      class = class_character,
+      default = "csv"
+    ),
+    errors = new_property(
+      class = class_data.frame
+    )
+  )
+)
+```
+
+The code for both is similar, the main differences being the default value for `file_ext` and that we extend the `NicheVendorExport` with another property called `errors`[^4], which will contain error information during execution as a `data.frame`. Notice there's relatively little code here compared to `BillingExport`. On the one hand, this is a benefit of class inheritance. When we create an instance of `PopularVendorBillingExport` or `NicheVendorBillingExport`, the properties of `BillingExport` are already included. On the other hand, we don't see any of the business logic for generating the flat file in the class definition. In other OOP systems like Python's, this logic would typically live inside of the class as a function bound to the class called a method. In S7, however, we implement this through what are called function generics. Generics aren't a new thing in R; they've been a part of the language ever since S3. But we may not all be aware of what they are exactly, so we'll dwell on that a bit next.
+
+[^4]: In a production system, all export classes would probably have an `errors` property. We implement it for one vendor to illustrate how classes can extend the base class.
+
+### The `generate_billing_export` generic
+
+First off, what is a generic? At first I thought generics were functions that behaved differently depending on the type of the input arguments[^5]. Turns out this isn't accurate, but there is some truth in it. In R, a generic is not a function; it's an interface that routes inputs to methods[^6]. What are methods? Methods are functions registered with a generic. When you pass an input to a generic, the generic *dispatches* that input to the method associated with the input type. Like S3 and S4, S7 uses function generics to operate on objects. We're going to create a generic called `generate_billing_export` that will behave differently depending on the kind of billing export object we pass to it. We'll present the code for creating the generic and the method implementation for both export types.
+
+[^5]: Think function overloading in languages like C++.
+
+[^6]: Didn't I just say methods were functions bound to objects? Confusing, right? Naming things is hard, even for the smart folks that come up with this stuff.
+
+``` r
+
+generate_billing_export <- new_generic(
+  name = "generate_billing_export",
+  dispatch_args = "x"
+)
+
+method(generate_billing_export, PopularVendorBillingExport) <- function(
+  x,
+  ...
+) {
+  # We make a TSV file.
+  d <- x@data |>
+    mutate(
+      medical_code = if_else(
+        rep(x@config$exclude_medical_code_field, nrow(x@data)),
+        "",
+        medical_code
+      ),
+      treatment_code = if_else(
+        rep(x@config$exclude_treatment_code_field, nrow(x@data)),
+        "",
+        treatment_code
+      )
+    ) |>
+    select(
+      -one_of(c(
+        "config",
+        "billing_export_type"
+      ))
+    )
+
+  d |>
+    readr::write_tsv(
+      file = x@output_file,
+      na = ""
+    )
+
+  invisible(x)
+}
+
+method(generate_billing_export, NicheVendorBillingExport) <- function(
+  x,
+  ...
+) {
+  CURRENT_YEAR <- year(today())
+
+  d <- x@data |>
+    mutate(
+      date_constraint_violated_ind = rep(
+        x@config$date_constraint,
+        nrow(x@data)
+      ) &
+        !(year(date_of_service) == CURRENT_YEAR)
+    )
+
+  validate_date <- function(d) {
+    facility <- pluck(d, "facility", 1)
+    bad_rows <- filter(d, date_constraint_violated_ind)
+    assertthat::validate_that(
+      {
+        nrow(bad_rows) == 0
+      },
+      msg = sprintf(
+        "Skipping facility %s: %i rows violate date constraint.",
+        facility,
+        nrow(bad_rows)
+      )
+    )
+  }
+
+  date_check <- validate_date(d)
+
+  if (!isTRUE(date_check)) {
+    message(date_check)
+    x@errors <- d |> filter(date_constraint_violated_ind)
+    return(invisible(x))
+  }
+
+  write_csv(
+    select(
+      d,
+      -date_constraint_violated_ind,
+      -config,
+      -billing_export_type
+    ),
+    file = x@output_file,
+    na = "",
+    append = FALSE
+  )
+
+  invisible(x)
+}
+```
+
+It's inside these method definitions that the bulk of our original R scripts will go. All of the logic for extracting and transforming the data, formatting fields, omitting fields, all gets included here. By passing the `PopularVendorBillingExport` object as an argument, we save ourselves having to pass a bunch of other arguments to the function. Everything the function needs is contained in the properties of the billing export object. Now that we have our objects and generics defined, we can create our main script that's responsible for orchestrating everything.
+
+### The new workflow
+
+The main script of our application is shown below. When we implement our S7 classes well, our program becomes more elegant and easier to reason about.
+
+``` r
+
+library(DBI)
+library(tidyr)
+library(dplyr)
+library(purrr)
+library(lubridate)
+library(readr)
+source("R/s7-types-and-generics.R")
+
+if (file.exists(".env")) {
+  dotenv::load_dot_env()
+}
+
+billing_export <- function(type, output_dir, data) {
+  config <- pluck(data, "config", 1)
+  out <- switch(
+    type,
+    "popular-vendor" = {
+      PopularVendorBillingExport(
+        data = data,
+        config = config,
+        output_dir = output_dir
+      )
+    },
+    "niche-vendor" = {
+      NicheVendorBillingExport(
+        data = data,
+        config = config,
+        output_dir = output_dir
+      )
+    }
+  )
+  out
+}
+
+generate_billing_export_safely <- purrr::safely(
+  generate_billing_export,
+  otherwise = NULL
+)
+
+con <- dbConnect(
+  drv = RPostgres::Postgres(),
+  dbname = Sys.getenv("DB_NAME"),
+  host = Sys.getenv("DB_HOST"),
+  port = Sys.getenv("DB_PORT"),
+  user = Sys.getenv("DB_USER"),
+  password = Sys.getenv("DB_PASSWORD")
+)
+
+facility_billing_config <- tbl(con, "facility_billing_config") |>
+  collect() |>
+  mutate(
+    config = map(config, ~ jsonlite::fromJSON(.x, simplifyDataFrame = FALSE))
+  )
+
+TARGET_DIR <- here::here("data", "billing-export")
+
+if (!dir.exists(TARGET_DIR)) {
+  dir.create(TARGET_DIR, recursive = TRUE)
+}
+
+billing <- tbl(con, "billing") |>
+  collect() |>
+  inner_join(
+    facility_billing_config,
+    by = join_by(facility == facility)
+  ) |>
+  group_nest(
+    facility,
+    billing_export_type,
+    keep = TRUE
+  ) |>
+  transmute(
+    facility,
+    billing_export_type,
+    billing_export = map2(
+      .x = data,
+      .y = billing_export_type,
+      .f = \(x, y) {
+        be <- billing_export(type = y, output_dir = TARGET_DIR, data = x)
+        generate_billing_export_safely(be)
+      }
+    )
+  )
+  
+```
+
+First, notice the function `billing_export`. I said at the beginning of the post that using if-else and switch statements to change the behavior of the code was something to avoid, and yet here I am just wrapping a function around a switch statement. What gives? For those that aren't familiar, `billing_export` is an example of the factory design pattern[^7]; we use this function to resolve what billing export to instantiate based on the column `billing_export_type`. Yes, we do use a switch statement, but we're only doing it in one place in the script, and even then, it's only isolated to object creation, not business logic. Sometimes an error will occur while generating an export for one facility and not the others. We don't want one facility holding up the others, so we also create a simple "safe" version of `generate_billing_export` called `generate_billing_export_safely` that returns `NULL` if we encounter an error. From there, creating billing exports for each facility reduces to another split-apply-combine workflow that we're used to with `{dplyr}` workflows. Regardless of how many new vendors we add, this code will still work the same way. We also don't have to juggle multiple R scripts anymore; one script can now iterate through each facility, applying completely different processing logic just by knowing what kind of billing export's being passed. Our code is also more robust because of the builtin validation that `{S7}` provides in its classes.
+
+[^7]: For more details, see the Wikipedia [here](https://en.wikipedia.org/wiki/Factory_method_pattern).
+
+## How does this help us?
+
+Now that we've done all this work, it's worth asking how this is better (or worse) than what we were already doing. This approach improves our code in two ways. On the one hand, it makes our code more extensible; on the other, it makes our code more composable. Let's consider extensibility first.
+
+Imagine our system now needs to support a new vendor called Fancy Vendor. Before S7, this would involve creating a whole new script for generating exports for Fancy Vendor. Adding scripts like this is costly in the long run. Any change that needs to be applied to all vendor types now needs to be made in *N* places instead of 1. For example, we might want to add the capability to split export files by `patient` in addition to `facility`. As the number of scripts grows, the chances of copy paste drift in the code increases. Contrast this with our S7 solution. If something needs to change for all of our exports, for most applications you'll find in data science and data engineering, the change will be as simple as modifying the `BillingExport` abstract class and that's it. For the new vendor, we create a `FancyVendorBillingExport` class, a method for generating its export file, and add the new type to our factory function for creating a billing export object. No change to the main application needed. In this way, we've made our system easier to extend should we ever need to.
+
+Next, let's think about composability. What if we wanted to make the billing export code available in a Shiny app because we wanted to make export generation something users can request on-demand? We could refactor our scripts so they only contain function definitions that we `source` into our Shiny app, but this can get messy. If there are functions with the same name but different implementations, that name collision could cause the app to throw an error or produce malformed output because the wrong implementation was used. With the S7 approach, we avoid name collision issues entirely because S7 generics dispatch to the right methods based on the type of the input. More importantly, we cannot pass scripts around as inputs to functions or modules in a Shiny app, but we can pass around S7 objects. Our S7 objects hold onto some state after the billing exports are generated, and this state can be leveraged in the Shiny app in ways our scripts never could. For example, the `NicheVendorBillingExport` keeps track of any errors that occurred during export generation. These errors can be fed into a dashboard view as tables and plots for the user to see and make decisions about later.
+
+You might wonder why we didn't just use functions here. We could have a `billing_export` function that's a switch statement under the hood calling functions like `billing_export_popular_vendor` and `billing_export_niche_vendor` based on the export type passed as character vector. This can be done, but we get more benefit from using S7. We get validation in our objects for free, as it's built in. We also benefit from organizing related pieces of data into custom objects as opposed to shoving them into a complex list structure. This is especially clear when you're debugging. If you have a nested list structure where a particular element is invalid and you pass it to a function, it's hard to tell if the error is in the list object or the function that handles that list. If that list was an S7 class, the object would throw an error on creation, making it clearer where the solution really lies.
+
+## Conclusion
+
+Scripts help us get things done fast. But as the needs of our software become more complex, scripts alone become more of a hindrance than a help. A complex system needs software that's extensible and composable. The `{S7}` package gives us tools to build such software. The ability to bundle related data into objects and operate on them with generic functions creates a whole lot of opportunity for R developers looking to solve complex problems. If you've used `{S7}` in your own work, I'd like to hear about it; if you haven't, I encourage you to take it out for a spin, and let me know what you think.
