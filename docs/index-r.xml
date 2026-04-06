@@ -26,7 +26,7 @@
   <title>Use R in your Dagster pipelines with {dagsterpipes}</title>
   <dc:creator>Joe Kirincic</dc:creator>
   <link>https://joekirincic.com/posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/</link>
-  <description><![CDATA[ Learn how R can now be used seamlessly within Dagster projects. ]]></description>
+  <description><![CDATA[ Learn about the new R package {dagsterpipes} for using R in Dagster. ]]></description>
   <category>R</category>
   <category>dagster</category>
   <category>data-engineering</category>

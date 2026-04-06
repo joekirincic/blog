@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Joe Kirincic">
-<meta name="dcterms.date" content="2026-02-15">
-<meta name="description" content="Learn how R can now be used seamlessly within Dagster projects.">
+<meta name="dcterms.date" content="2026-04-06">
+<meta name="description" content="Learn about the new R package {dagsterpipes} for using R in Dagster.">
 
 <title>Use R in your Dagster pipelines with {dagsterpipes} – Joe Kirincic</title>
 <style>
@@ -161,7 +161,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <h1 class="title">Use R in your Dagster pipelines with <code>{dagsterpipes}</code></h1>
                   <div>
         <div class="description">
-          Learn how R can now be used seamlessly within Dagster projects.
+          Learn about the new R package <code>{dagsterpipes}</code> for using R in Dagster.
         </div>
       </div>
                           <div class="quarto-categories">
@@ -185,7 +185,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">February 15, 2026</p>
+        <p class="date">April 6, 2026</p>
       </div>
     </div>
     
@@ -206,84 +206,91 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="introduction" class="level2">
 <h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
-<p>I’m a big fan of Dagster for managing data pipelines, but I’m also a huge fan of R for writing data pipelines, training machine learning models, and so on. Recently, I got tired of not them not being able to combine well together, so I set out to fix that. These efforts resulted in a new R package called <a href="https://github.com/joekirincic/dagsterpipes"><code>{dagsterpipes}</code></a>. In this post, I’m going to show how you can now leverage R inside of Dagster using the package.</p>
-</section>
-<section id="prerequisites" class="level2">
-<h2 class="anchored" data-anchor-id="prerequisites">Prerequisites</h2>
-<p>To follow along with this post, you should understand the following.</p>
-<ul>
-<li>Dagster: what it is, how to set it up., etc.</li>
-<li>Docker</li>
-</ul>
+<p>Your team just completed a successful ML model development project. The model performs well on out-of-sample data; the training code is wrapped in an R package with good test coverage; it even has a <code>{pkgdown}</code> documentation website to boot. Everything’s going swell. You share the GitHub repo with the platform engineering team, and their feedback is, “We need this code to be written in Python to wire it up to Dagster. Can you rewrite this in Python?” That rewrite is no longer necessary: with the new R package <code>{dagsterpipes}</code>, you can bring all the power of R to Dagster.</p>
 </section>
 <section id="what-were-building" class="level2">
 <h2 class="anchored" data-anchor-id="what-were-building">What we’re building</h2>
-<p>We’re going to create a new asset in our Dagster project that uses R for processing the data. Specifically, we’re going to have an asset that does some basic ETL taking data from a database and plopping it into a new database table. Apart from being able to materialize a Dagster asset written in R, we also want R to communicate progress of the run with the Dagster instance. We also want to display metadata related to the run when the asset is done materializing.</p>
-<p>What we’re building needs to materialize an asset using R code. In addition, we want what we’ve built to be able to communicate with Dagster so we get the same observability we love about it.</p>
+<p>We’re going to create a minimal Dagster project that has an asset implemented in R. Specifically, our asset is going to simply write out the <code>mtcars</code> dataset into a table in a Postgres database. Apart from being able to materialize a Dagster asset written in R, we also want R to communicate progress of the run with the Dagster instance, along with metadata related to the run when the asset is finished materializing.</p>
 </section>
 <section id="dagster-pipes-protocol" class="level2">
 <h2 class="anchored" data-anchor-id="dagster-pipes-protocol">Dagster Pipes Protocol</h2>
-<p>In 2024, Dagster announced their new Pipes protocol for language agnostic workflows (TODO: check date). Maybe you have some legacy Java service that updates data in a warehouse; maybe the job is written in Spark, or in our case, R. The Dagster Pipes Protocol allows Dagster to communicate with any language that implements the protocol. So to make R runnable inside of Dagster, we need an implementation of the Pipes protocol for R. That’s where the package <code>{dagsterpipes}</code> comes in; it provides the Pipes protocol implementation we need. The specifics of how it achieves this aren’t as important as what it enables. Let’s see some R code running in Dagster.</p>
+<p>In late 2023, Dagster announced their new Pipes Protocol for language agnostic workflows. Maybe you have some legacy Java service that updates data in a warehouse; maybe the job is written in Scala, or in our case, R. The Dagster Pipes Protocol allows Dagster to communicate with any language that implements the protocol. So to make R runnable inside of Dagster, we need an implementation of the Pipes protocol for R. That’s where the package <code>{dagsterpipes}</code> comes in; it provides the protocol implementation we need. The specifics of how it achieves this aren’t as important as what it enables. Let’s see some R code running in Dagster.</p>
 </section>
-<section id="our-first-r-based-asset" class="level2">
-<h2 class="anchored" data-anchor-id="our-first-r-based-asset">Our first R-based asset</h2>
-<p>Our R asset is going to update a table inside of our Postgres database. First, it runs a SQL query to extract some data, and if there’s rows, it drops the relevant records in the target table and inserts the rows returned from the SQL query. Consider the R code below.</p>
+<section id="our-first-r-based-asset-the-r-side" class="level2">
+<h2 class="anchored" data-anchor-id="our-first-r-based-asset-the-r-side">Our first R-based asset: the R side</h2>
+<p>Our R asset is going to insert records from <code>mtcars</code> into a Postgres table. Simple, easy, and nice. Consider the code below.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dagsterpipes)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(DBI)</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>ctx <span class="ot">&lt;-</span> <span class="fu">open_dagster_pipes</span>()</span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Starting ETL process."</span>)</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Fetching data from DB."</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">tryCatch</span>(</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  {</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Starting ETL process."</span>)</span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>con <span class="ot">&lt;-</span> <span class="fu">dbConnect</span>(</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">drv =</span> RPostgres<span class="sc">::</span><span class="fu">Postgres</span>(),</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">dbname =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_NAME"</span>),</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">host =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_HOST"</span>),</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">port =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_PORT"</span>),</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">user =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_USER"</span>),</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">password =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_PASSWORD"</span>)</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    con <span class="ot">&lt;-</span> <span class="fu">dbConnect</span>(</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>      <span class="at">drv =</span> RPostgres<span class="sc">::</span><span class="fu">Postgres</span>(),</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      <span class="at">dbname =</span> ctx<span class="sc">$</span><span class="fu">get_extra</span>(<span class="st">"DB_NAME"</span>),</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>      <span class="at">host =</span> ctx<span class="sc">$</span><span class="fu">get_extra</span>(<span class="st">"DB_HOST"</span>),</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      <span class="at">port =</span> ctx<span class="sc">$</span><span class="fu">get_extra</span>(<span class="st">"DB_PORT"</span>) <span class="sc">|&gt;</span> <span class="fu">as.integer</span>(),</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      <span class="at">user =</span> ctx<span class="sc">$</span><span class="fu">get_extra</span>(<span class="st">"DB_USER"</span>),</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>      <span class="at">password =</span> ctx<span class="sc">$</span><span class="fu">get_extra</span>(<span class="st">"DB_PASSWORD"</span>)</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    )</span>
 <span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> mtcars</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Writing `mtcars` to DB."</span>)</span>
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Fetched data from DB."</span>)</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">dbWriteTable</span>(con, <span class="at">name =</span> <span class="st">"mtcars"</span>, <span class="at">value =</span> mtcars, <span class="at">overwrite =</span> <span class="cn">TRUE</span>)</span>
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="fu">dbWriteTable</span>(con, <span class="at">name =</span> <span class="st">"mtcars"</span>, <span class="at">value =</span> df, <span class="at">overwrite =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Finished table write."</span>)</span>
 <span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Finished ETL process."</span>)</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">report_asset_materialization</span>(</span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">metadata =</span> <span class="fu">list</span>(</span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">row_count =</span> <span class="fu">pipes_metadata_value</span>(<span class="fu">nrow</span>(df), <span class="st">"int"</span>)</span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">report_asset_materialization</span>(</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>      <span class="at">metadata =</span> <span class="fu">list</span>(</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>        <span class="at">row_count =</span> <span class="fu">pipes_metadata_value</span>(<span class="fu">nrow</span>(mtcars), <span class="st">"int"</span>)</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"ETL process completed."</span>)</span>
 <span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Process completed."</span>)</span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>ctx<span class="sc">$</span><span class="fu">close</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">close</span>()</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  },</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">error =</span> <span class="cf">function</span>(e) {</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">close</span>(<span class="at">exception =</span> e)</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="fu">stop</span>(e)</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>The big thing here is the <code>ctx</code> variable we get from calling <code>open_dagster_pipes</code>. The context is where Dagster shoves information related to the run like partition keys and other environment variables. On the R-side, we can log information about the run that gets sent back to Dagster and shown inside of the run details page. How does this look on the Python side? Pretty simple. Consider the code below.</p>
+<p>The big thing here is the <code>ctx</code> variable we get from calling <code>open_dagster_pipes</code>. The context is where Dagster shoves information related to the run like partition keys and other environment variables. On the R-side, we can log information about the run that gets sent back to Dagster and shown inside of the run details page. How does this look on the Python side? We’ll consider that next.</p>
+</section>
+<section id="our-first-r-based-asset-the-python-side" class="level2">
+<h2 class="anchored" data-anchor-id="our-first-r-based-asset-the-python-side">Our first R-based asset: the Python side</h2>
+<p>Consider the code below.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> dagster <span class="im">as</span> dg</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>R_ETL_SCRIPT <span class="op">=</span> Path(<span class="va">__file__</span>).parent.joinpath(<span class="st">"etl.R"</span>)</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="at">@dg.asset</span>()</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> r_asset(context: dg.AssetExecutionContext, pipes_subprocess_client: dg.PipesSubprocessClient):</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> pipes_subprocess_client.run(</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        command<span class="op">=</span>[<span class="st">"Rscript"</span>, <span class="bu">str</span>(R_ETL_SCRIPT)],</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        context<span class="op">=</span>context</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    ).get_materialize_result()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>R_ETL_SCRIPT <span class="op">=</span> Path(<span class="va">__file__</span>).parent.joinpath(<span class="st">"etl.R"</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="at">@dg.asset</span>()</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> r_asset(context: dg.AssetExecutionContext, pipes_subprocess_client: dg.PipesSubprocessClient):</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> pipes_subprocess_client.run(</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        command<span class="op">=</span>[<span class="st">"Rscript"</span>, <span class="bu">str</span>(R_ETL_SCRIPT)],</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        context<span class="op">=</span>context,</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        extras<span class="op">=</span>{</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_HOST"</span>: os.getenv(<span class="st">"DB_HOST"</span>),</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_PORT"</span>: os.getenv(<span class="st">"DB_PORT"</span>),</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_NAME"</span>: os.getenv(<span class="st">"DB_NAME"</span>),</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_USER"</span>: os.getenv(<span class="st">"DB_USER"</span>),</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_PASSWORD"</span>: os.getenv(<span class="st">"DB_PASSWORD"</span>)</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    ).get_materialize_result()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>The most important thing to note in this code is a new Dagster resource we’re passing as argument to the asset function, a <code>PipesSubprocessClient</code> object. This object simply invokes <code>Rscript &lt;OUR_R_SCRIPT&gt;</code>.</p>
+<p>The most important thing to note here is a new Dagster resource we’re passing as an argument to the asset function, a <code>PipesSubprocessClient</code> object. You might wonder why we need this resource when we could just use Python’s <code>subprocess</code> module. The primary difference is that <code>PipesSubprocessClient</code> doesn’t just run the R script: it creates and maintains the message sink where all communication between R and Dagster occurs. Part of this communication involves injecting all of the values in the <code>context</code> variable so that R is aware of things like partitions, environment variables, and so on. You don’t get all of that with a simple call to <code>subprocess.run()</code>. The <code>PipesSubprocessClient</code> also has convenience methods like <code>get_materialize_result</code> for extracting important information from the message sink, in this case the message created by the<code>report_asset_materialization</code> method on the R side.</p>
 </section>
 <section id="conclusion" class="level2">
 <h2 class="anchored" data-anchor-id="conclusion">Conclusion</h2>
-<p>Now your Dagster projects can benefit from the powerful facilities throughout the R ecosystem. Go nuts.</p>
+<p>The <code>{dagsterpipes}</code> package makes R a first-class citizen in the Dagster ecosystem. Teams that work in R or Python can now leverage the same powerful orchestration technology. The package is available from GitHub; installation instructions can be found <a href="https://joekirincic.github.io/dagsterpipes/">here</a>. I plan on submitting the package to CRAN in the near future. The package is a complete implementation of the pipes protocol. I welcome any PRs or bug reports to improve the implementation further.</p>
 
 
 </section>
