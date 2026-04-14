@@ -23,6 +23,18 @@
   <media:content url="https://joekirincic.com/posts/this-r-script-could-ve-been-an-s7-class/thumbnail.jpeg" medium="image" type="image/jpeg"/>
 </item>
 <item>
+  <title>Use R in your Dagster pipelines with {dagsterpipes}</title>
+  <dc:creator>Joe Kirincic</dc:creator>
+  <link>https://joekirincic.com/posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/</link>
+  <description><![CDATA[ Learn about the new R package {dagsterpipes} for using R in Dagster. ]]></description>
+  <category>R</category>
+  <category>dagster</category>
+  <category>data-engineering</category>
+  <guid>https://joekirincic.com/posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/</guid>
+  <pubDate>Sun, 15 Feb 2026 05:00:00 GMT</pubDate>
+  <media:content url="https://joekirincic.com/posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/thumbnail.jpg" medium="image" type="image/jpeg"/>
+</item>
+<item>
   <title>Taming gnarly nested data with purrr::modify_tree</title>
   <dc:creator>Joe Kirincic</dc:creator>
   <link>https://joekirincic.com/posts/managing-gnarly-nested-data-with-purrr-modify-tree/</link>
@@ -31,6 +43,17 @@
   <guid>https://joekirincic.com/posts/managing-gnarly-nested-data-with-purrr-modify-tree/</guid>
   <pubDate>Mon, 05 Jan 2026 05:00:00 GMT</pubDate>
   <media:content url="https://joekirincic.com/posts/managing-gnarly-nested-data-with-purrr-modify-tree/thumbnail.jpeg" medium="image" type="image/jpeg"/>
+</item>
+<item>
+  <title></title>
+  <dc:creator>Joe Kirincic</dc:creator>
+  <link>https://joekirincic.com/posts/managing-aws-services-in-r-with-paws/</link>
+  <description><![CDATA[  ]]></description>
+  <category>R</category>
+  <category>aws</category>
+  <guid>https://joekirincic.com/posts/managing-aws-services-in-r-with-paws/</guid>
+  <pubDate>Mon, 22 Dec 2025 05:00:00 GMT</pubDate>
+  <media:content url="https://joekirincic.com/posts/managing-aws-services-in-r-with-paws" medium="image"/>
 </item>
 <item>
   <title>Performance Optimization for Plumber APIs: Long Running Jobs</title>
