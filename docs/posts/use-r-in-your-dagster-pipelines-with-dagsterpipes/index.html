@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Joe Kirincic">
-<meta name="dcterms.date" content="2026-04-06">
-<meta name="description" content="Learn about the new R package {dagsterpipes} for using R in Dagster.">
+<meta name="dcterms.date" content="2026-04-16">
+<meta name="description" content="Learn how R can now be used seamlessly within Dagster projects.">
 
 <title>Use R in your Dagster pipelines with {dagsterpipes} – Joe Kirincic</title>
 <style>
@@ -160,7 +160,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <h1 class="title">Use R in your Dagster pipelines with <code>{dagsterpipes}</code></h1>
                   <div>
         <div class="description">
-          Learn about the new R package <code>{dagsterpipes}</code> for using R in Dagster.
+          Learn how R can now be used seamlessly within Dagster projects.
         </div>
       </div>
                           <div class="quarto-categories">
@@ -184,7 +184,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">April 6, 2026</p>
+        <p class="date">April 16, 2026</p>
       </div>
     </div>
     
@@ -209,15 +209,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="what-were-building" class="level2">
 <h2 class="anchored" data-anchor-id="what-were-building">What we’re building</h2>
-<p>We’re going to create a minimal Dagster project that has an asset implemented in R. Specifically, our asset is going to simply write out the <code>mtcars</code> dataset into a table in a Postgres database. Apart from being able to materialize a Dagster asset written in R, we also want R to communicate progress of the run with the Dagster instance, along with metadata related to the run when the asset is finished materializing.</p>
+<p>We’re going to create a minimal Dagster project that has an asset implemented in R. Specifically, our asset is going to simply write out the <code>mtcars</code> dataset into a table in a Postgres database. Apart from being able to materialize a Dagster asset written in R, we also want R to communicate progress of the run with the Dagster instance, along with metadata related to the run when the asset is finished materializing. A GitHub repo accompanying this post can be found <a href="https://github.com/joekirincic/dagsterdemo">here</a>.</p>
 </section>
-<section id="dagster-pipes-protocol" class="level2">
-<h2 class="anchored" data-anchor-id="dagster-pipes-protocol">Dagster Pipes Protocol</h2>
-<p>In late 2023, Dagster announced their new Pipes Protocol for language agnostic workflows. Maybe you have some legacy Java service that updates data in a warehouse; maybe the job is written in Scala, or in our case, R. The Dagster Pipes Protocol allows Dagster to communicate with any language that implements the protocol. So to make R runnable inside of Dagster, we need an implementation of the Pipes protocol for R. That’s where the package <code>{dagsterpipes}</code> comes in; it provides the protocol implementation we need. The specifics of how it achieves this aren’t as important as what it enables. Let’s see some R code running in Dagster.</p>
+<section id="dagster-pipes-protocol-and-dagsterpipes" class="level2">
+<h2 class="anchored" data-anchor-id="dagster-pipes-protocol-and-dagsterpipes">Dagster Pipes Protocol and <code>{dagsterpipes}</code></h2>
+<p>All of this is possible using Dagster’s Pipes Protocol. The Pipes Protocol is a message channel between Dagster and an external process. Dagster sends information relevant to running the asset (partition keys, environment variables, etc.) to the external process. The external process sends logs, metadata, and materialization events back to Dagster. Since the protocol consists of structured messaging, it can be implemented in any programming language. This is where the <code>{dagsterpipes}</code> R package comes in; it provides the implementation of the Pipes Protocol for R.</p>
 </section>
 <section id="our-first-r-based-asset-the-r-side" class="level2">
 <h2 class="anchored" data-anchor-id="our-first-r-based-asset-the-r-side">Our first R-based asset: the R side</h2>
-<p>Our R asset is going to insert records from <code>mtcars</code> into a Postgres table. Simple, easy, and nice. Consider the code below.</p>
+<p>Our R asset is going to insert records from <code>mtcars</code> into a Postgres table. Here’s the code.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dagsterpipes)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(DBI)</span>
@@ -259,37 +259,50 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>  }</span>
 <span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>The big thing here is the <code>ctx</code> variable we get from calling <code>open_dagster_pipes</code>. The context is where Dagster shoves information related to the run like partition keys and other environment variables. On the R-side, we can log information about the run that gets sent back to Dagster and shown inside of the run details page. How does this look on the Python side? We’ll consider that next.</p>
-</section>
-<section id="our-first-r-based-asset-the-python-side" class="level2">
-<h2 class="anchored" data-anchor-id="our-first-r-based-asset-the-python-side">Our first R-based asset: the Python side</h2>
-<p>Consider the code below.</p>
+<p>The important thing here is the <code>ctx</code> variable we get from calling <code>open_dagster_pipes</code>. Short for “context”, <code>ctx</code> is where Dagster shoves information related to the run like partition keys and other environment variables. On the R-side, we can log information about the run that gets sent back to Dagster and shown inside of the run details page. ## Our first R-based asset: the Python side</p>
+<p>There are two places in our Python code we need to change to make this work. First, we create the <code>PipesSubprocessClient</code> resource in <code>definitions.py</code> (see code below).</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> dagster <span class="im">as</span> dg</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dagster <span class="im">import</span> Definitions, load_assets_from_modules, PipesSubprocessClient</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dagsterdemo <span class="im">import</span> assets  <span class="co"># noqa: TID252</span></span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>R_ETL_SCRIPT <span class="op">=</span> Path(<span class="va">__file__</span>).parent.joinpath(<span class="st">"etl.R"</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>all_assets <span class="op">=</span> load_assets_from_modules([assets])</span>
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="at">@dg.asset</span>()</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> r_asset(context: dg.AssetExecutionContext, pipes_subprocess_client: dg.PipesSubprocessClient):</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> pipes_subprocess_client.run(</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        command<span class="op">=</span>[<span class="st">"Rscript"</span>, <span class="bu">str</span>(R_ETL_SCRIPT)],</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        context<span class="op">=</span>context,</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        extras<span class="op">=</span>{</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_HOST"</span>: os.getenv(<span class="st">"DB_HOST"</span>),</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_PORT"</span>: os.getenv(<span class="st">"DB_PORT"</span>),</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_NAME"</span>: os.getenv(<span class="st">"DB_NAME"</span>),</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_USER"</span>: os.getenv(<span class="st">"DB_USER"</span>),</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_PASSWORD"</span>: os.getenv(<span class="st">"DB_PASSWORD"</span>)</span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        }</span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    ).get_materialize_result()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>defs <span class="op">=</span> Definitions(</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    assets<span class="op">=</span>all_assets,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    resources<span class="op">=</span>{</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">"pipes_subprocess_client"</span>: PipesSubprocessClient()</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>The most important thing to note here is a new Dagster resource we’re passing as an argument to the asset function, a <code>PipesSubprocessClient</code> object. You might wonder why we need this resource when we could just use Python’s <code>subprocess</code> module. The primary difference is that <code>PipesSubprocessClient</code> doesn’t just run the R script: it creates and maintains the message sink where all communication between R and Dagster occurs. Part of this communication involves injecting all of the values in the <code>context</code> variable so that R is aware of things like partitions, environment variables, and so on. You don’t get all of that with a simple call to <code>subprocess.run()</code>. The <code>PipesSubprocessClient</code> also has convenience methods like <code>get_materialize_result</code> for extracting important information from the message sink, in this case the message created by the<code>report_asset_materialization</code> method on the R side.</p>
+<p>Once this resource is registered in Dagster, we can inject it into any of our Dagster asset functions. The next place we need to make changes is in <code>assets.py</code> as shown below.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> dagster <span class="im">as</span> dg</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>R_ETL_SCRIPT <span class="op">=</span> Path(<span class="va">__file__</span>).parent.joinpath(<span class="st">"etl.R"</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="at">@dg.asset</span>()</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> r_asset(context: dg.AssetExecutionContext, pipes_subprocess_client: dg.PipesSubprocessClient):</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> pipes_subprocess_client.run(</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        command<span class="op">=</span>[<span class="st">"Rscript"</span>, <span class="bu">str</span>(R_ETL_SCRIPT)],</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        context<span class="op">=</span>context,</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        extras<span class="op">=</span>{</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_HOST"</span>: os.getenv(<span class="st">"DB_HOST"</span>),</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_PORT"</span>: os.getenv(<span class="st">"DB_PORT"</span>),</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_NAME"</span>: os.getenv(<span class="st">"DB_NAME"</span>),</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_USER"</span>: os.getenv(<span class="st">"DB_USER"</span>),</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_PASSWORD"</span>: os.getenv(<span class="st">"DB_PASSWORD"</span>)</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        }</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    ).get_materialize_result()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>The most important thing to note here is we’re passing that <code>PipesSubprocessClient</code> instance we defined earlier. You might wonder two things about this code. One is whether it’s a coincidence that the argument name for the <code>PipesSubprocessClient</code> in <code>r_asset</code> matches the <code>dict</code> key we gave the <code>PipesSubprocessClient</code> in <code>definitions.py</code>. This isn’t a coincidence: Dagster resolves resources by name, so any resource you want to inject into an asset needs the argument name to match. Another thing you might wonder is why we need this resource when we could just use Python’s <code>subprocess</code> module. The primary difference is that <code>PipesSubprocessClient</code> doesn’t just run the R script: it creates and maintains the message sink where all communication between R and Dagster occurs. Part of this communication involves injecting all of the values in the <code>context</code> variable so that R is aware of things like partitions, environment variables, and so on. You don’t get all of that with a simple call to <code>subprocess.run()</code>. The <code>PipesSubprocessClient</code> also has convenience methods like <code>get_materialize_result</code> for extracting important information from the message sink, in this case the message created by the <code>report_asset_materialization</code> method on the R side.</p>
 </section>
 <section id="conclusion" class="level2">
 <h2 class="anchored" data-anchor-id="conclusion">Conclusion</h2>
-<p>The <code>{dagsterpipes}</code> package makes R a first-class citizen in the Dagster ecosystem. Teams that work in R or Python can now leverage the same powerful orchestration technology. The package is available from GitHub; installation instructions can be found <a href="https://joekirincic.github.io/dagsterpipes/">here</a>. I plan on submitting the package to CRAN in the near future. The package is a complete implementation of the pipes protocol. I welcome any PRs or bug reports to improve the implementation further.</p>
+<p>The <code>{dagsterpipes}</code> package makes it possible for teams working with R or Python to leverage the same powerful orchestration technology. For example, suppose an ML group uses <code>{tidymodels}</code> to train a GAM model. They want to automate retraining the model when prediction accuracy drops below a certain threshold. With <code>{dagsterpipes}</code>, the team can create a Dagster asset for the GAM model that triggers retraining when an upstream evaluation determines accuracy is too low. The team gets automated retraining with minimal refactoring.</p>
+<p>This package aims to be a complete implementation of the Pipes Protocol; if you find part of it is lacking, please submit an issue or a PR on Github. The package is only available from GitHub for now; installation instructions can be found <a href="https://joekirincic.github.io/dagsterpipes/">here</a>. I plan on submitting the package to CRAN in the near future.</p>
 
 
 </section>

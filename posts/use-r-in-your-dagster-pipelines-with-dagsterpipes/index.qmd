@@ -2,7 +2,7 @@
 title: "Use R in your Dagster pipelines with `{dagsterpipes}`"
 description: "Learn how R can now be used seamlessly within Dagster projects."
 author: "Joe Kirincic"
-date: "2026-02-15"
+date: "2026-04-16"
 categories: [R,dagster,data-engineering]
 image: "thumbnail.jpg"
 image-alt: ""

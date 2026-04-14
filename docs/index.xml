@@ -10,7 +10,19 @@
 <atom:link href="https://joekirincic.com/index.xml" rel="self" type="application/rss+xml"/>
 <description></description>
 <generator>quarto-1.7.31</generator>
-<lastBuildDate>Sun, 22 Mar 2026 04:00:00 GMT</lastBuildDate>
+<lastBuildDate>Thu, 16 Apr 2026 04:00:00 GMT</lastBuildDate>
+<item>
+  <title>Use R in your Dagster pipelines with {dagsterpipes}</title>
+  <dc:creator>Joe Kirincic</dc:creator>
+  <link>https://joekirincic.com/posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/</link>
+  <description><![CDATA[ Learn how R can now be used seamlessly within Dagster projects. ]]></description>
+  <category>R</category>
+  <category>dagster</category>
+  <category>data-engineering</category>
+  <guid>https://joekirincic.com/posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/</guid>
+  <pubDate>Thu, 16 Apr 2026 04:00:00 GMT</pubDate>
+  <media:content url="https://joekirincic.com/posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/thumbnail.jpg" medium="image" type="image/jpeg"/>
+</item>
 <item>
   <title>This R script could’ve been an S7 class</title>
   <dc:creator>Joe Kirincic</dc:creator>
@@ -21,18 +33,6 @@
   <guid>https://joekirincic.com/posts/this-r-script-could-ve-been-an-s7-class/</guid>
   <pubDate>Sun, 22 Mar 2026 04:00:00 GMT</pubDate>
   <media:content url="https://joekirincic.com/posts/this-r-script-could-ve-been-an-s7-class/thumbnail.jpeg" medium="image" type="image/jpeg"/>
-</item>
-<item>
-  <title>Use R in your Dagster pipelines with {dagsterpipes}</title>
-  <dc:creator>Joe Kirincic</dc:creator>
-  <link>https://joekirincic.com/posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/</link>
-  <description><![CDATA[ Learn about the new R package {dagsterpipes} for using R in Dagster. ]]></description>
-  <category>R</category>
-  <category>dagster</category>
-  <category>data-engineering</category>
-  <guid>https://joekirincic.com/posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/</guid>
-  <pubDate>Sun, 15 Feb 2026 05:00:00 GMT</pubDate>
-  <media:content url="https://joekirincic.com/posts/use-r-in-your-dagster-pipelines-with-dagsterpipes/thumbnail.jpg" medium="image" type="image/jpeg"/>
 </item>
 <item>
   <title>Taming gnarly nested data with purrr::modify_tree</title>
