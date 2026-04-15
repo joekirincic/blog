@@ -4,6 +4,7 @@ project:
 
 website:
   title: "Joe Kirincic"
+  draft-mode: gone
   site-url: https://joekirincic.com
   navbar:
     right:

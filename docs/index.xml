@@ -45,17 +45,6 @@
   <media:content url="https://joekirincic.com/posts/managing-gnarly-nested-data-with-purrr-modify-tree/thumbnail.jpeg" medium="image" type="image/jpeg"/>
 </item>
 <item>
-  <title></title>
-  <dc:creator>Joe Kirincic</dc:creator>
-  <link>https://joekirincic.com/posts/managing-aws-services-in-r-with-paws/</link>
-  <description><![CDATA[  ]]></description>
-  <category>R</category>
-  <category>aws</category>
-  <guid>https://joekirincic.com/posts/managing-aws-services-in-r-with-paws/</guid>
-  <pubDate>Mon, 22 Dec 2025 05:00:00 GMT</pubDate>
-  <media:content url="https://joekirincic.com/posts/managing-aws-services-in-r-with-paws" medium="image"/>
-</item>
-<item>
   <title>Performance Optimization for Plumber APIs: Long Running Jobs</title>
   <dc:creator>Joe Kirincic</dc:creator>
   <link>https://joekirincic.com/posts/performance-optimization-for-plumber-apis-long-running-jobs/</link>
