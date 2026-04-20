@@ -2,11 +2,11 @@
 title: "Use R in your Dagster pipelines with `{dagsterpipes}`"
 description: "Learn how R can now be used seamlessly within Dagster projects."
 author: "Joe Kirincic"
-date: "2026-02-15"
+date: "2026-04-16"
 categories: [R,dagster,data-engineering]
 image: "thumbnail.jpg"
 image-alt: ""
-draft: true
+draft: false
 ---
 
 ## Introduction
@@ -25,7 +25,7 @@ All of this is possible using Dagster's Pipes Protocol. The Pipes Protocol is a 
 
 Our R asset is going to insert records from `mtcars` into a Postgres table. Here's the code.
 
-```{r}
+```{r, eval=FALSE}
 
 library(dagsterpipes)
 library(DBI)
@@ -73,7 +73,7 @@ The important thing here is the `ctx` variable we get from calling `open_dagster
 
 There are two places in our Python code we need to change to make this work. First, we create the `PipesSubprocessClient` resource in `definitions.py` (see code below).
 
-```{python}
+```{python, eval=FALSE}
 from dagster import Definitions, load_assets_from_modules, PipesSubprocessClient
 
 from dagsterdemo import assets  # noqa: TID252
@@ -90,7 +90,7 @@ defs = Definitions(
 
 Once this resource is registered in Dagster, we can inject it into any of our Dagster asset functions. The next place we need to make changes is in `assets.py` as shown below.
 
-```{python}
+```{python, eval=FALSE}
 
 import dagster as dg
 from pathlib import Path

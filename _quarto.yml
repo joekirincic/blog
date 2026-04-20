@@ -2,8 +2,12 @@ project:
   type: website
   output-dir: docs
 
+execute:
+  freeze: auto
+
 website:
   title: "Joe Kirincic"
+  draft-mode: gone
   site-url: https://joekirincic.com
   navbar:
     right:

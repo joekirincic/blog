@@ -7,10 +7,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Joe Kirincic">
-<meta name="dcterms.date" content="2026-04-16">
-<meta name="description" content="Learn how R can now be used seamlessly within Dagster projects.">
+<meta name="dcterms.date" content="2026-04-19">
+<meta name="description" content="Learn how to create TUIs using the {rtui} package.">
 
-<title>Use R in your Dagster pipelines with {dagsterpipes} – Joe Kirincic</title>
+<title>Create terminal apps in R with the {rtui} package – Joe Kirincic</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -157,16 +157,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">Use R in your Dagster pipelines with <code>{dagsterpipes}</code></h1>
+      <h1 class="title">Create terminal apps in R with the <code>{rtui}</code> package</h1>
                   <div>
         <div class="description">
-          Learn how R can now be used seamlessly within Dagster projects.
+          Learn how to create TUIs using the <code>{rtui}</code> package.
         </div>
       </div>
                           <div class="quarto-categories">
                 <div class="quarto-category">R</div>
-                <div class="quarto-category">dagster</div>
-                <div class="quarto-category">data-engineering</div>
               </div>
                   </div>
   </div>
@@ -184,7 +182,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">April 16, 2026</p>
+        <p class="date">April 19, 2026</p>
       </div>
     </div>
     
@@ -205,104 +203,59 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="introduction" class="level2">
 <h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
-<p>Your team just completed a successful ML model development project. The model performs well on out-of-sample data; the training code is wrapped in an R package with good test coverage; it even has a <code>{pkgdown}</code> documentation website to boot. Everything’s going swell. You share the GitHub repo with the platform engineering team, and their feedback is, “We need this code to be written in Python to wire it up to Dagster. Can you rewrite this in Python?” That rewrite is no longer necessary: with the new R package <code>{dagsterpipes}</code>, you can bring all the power of R to Dagster.</p>
+<p>This post is about a new R package I’ve created called <code>{rtui}</code>. The package provides a framework for building text user interfaces, otherwise known as TUIs. TUIs are like web apps in that they have interactive interfaces, but instead of being web-based, they are terminal-based.</p>
 </section>
-<section id="what-were-building" class="level2">
-<h2 class="anchored" data-anchor-id="what-were-building">What we’re building</h2>
-<p>We’re going to create a minimal Dagster project that has an asset implemented in R. Specifically, our asset is going to simply write out the <code>mtcars</code> dataset into a table in a Postgres database. Apart from being able to materialize a Dagster asset written in R, we also want R to communicate progress of the run with the Dagster instance, along with metadata related to the run when the asset is finished materializing. A GitHub repo accompanying this post can be found <a href="https://github.com/joekirincic/dagsterdemo">here</a>.</p>
+<section id="an-example-tui" class="level2">
+<h2 class="anchored" data-anchor-id="an-example-tui">An example TUI</h2>
+<p>Let’s make things concrete. Consider the following example app that ships with the package.</p>
+<p><img src="table-tui-example.png" class="img-fluid"></p>
+<p>You run <code>R -e rtui::run_example("table")</code> in a terminal to start the app. From there, you can interact with the app in much the same way you’d work with a Shiny app. You can scroll through the table rows using the arrow keys; you can click on a row to select it; you can filter the data displayed in the table using the filter input. You can do a lot of the same things with a TUI that you can do in a Shiny app. That said, you can make TUIs for dashboards, text editors, even games. The limit’s your imagination, really. If you’ve ever used Claude Code, you’ve used a TUI.</p>
 </section>
-<section id="dagster-pipes-protocol-and-dagsterpipes" class="level2">
-<h2 class="anchored" data-anchor-id="dagster-pipes-protocol-and-dagsterpipes">Dagster Pipes Protocol and <code>{dagsterpipes}</code></h2>
-<p>All of this is possible using Dagster’s Pipes Protocol. The Pipes Protocol is a message channel between Dagster and an external process. Dagster sends information relevant to running the asset (partition keys, environment variables, etc.) to the external process. The external process sends logs, metadata, and materialization events back to Dagster. Since the protocol consists of structured messaging, it can be implemented in any programming language. This is where the <code>{dagsterpipes}</code> R package comes in; it provides the implementation of the Pipes Protocol for R.</p>
+<section id="why-tuis" class="level2">
+<h2 class="anchored" data-anchor-id="why-tuis">Why TUIs?</h2>
+<p>I made the package for a few reasons.</p>
+<ul>
+<li>I wanted to see if it was possible. There’s an awesome TUI framework called Textual that’s written in Python; if it’s possible to do it in Python, I wanted to see if I could do something similar in R.</li>
+<li>I like working with TUIs.
+<ul>
+<li>As someone who writes a lot of code, I dig the aesthetic of the terminal.</li>
+<li>Leaner stack. No web framework needed. Fewer dependencies make maintenance easier.</li>
+<li>Simpler to deploy. No need to spin up servers and whatnot.</li>
+<li>Less resource usage. Between a web app and a TUI, the latter is going to consume less memory and CPU.</li>
+<li>I already spend a lot of time in the terminal. TUIs provide a QOL improvement in a place I’m already dwelling in a lot.</li>
+<li>They can enhance CLI tools by providing an interactive interface to their public API. Web apps are great, but they can be overkill sometimes. Suppose you wanted an app to read through your Git history, or inspect AWS resources. In cases like this, you often just want a table you can filter and drill into for details. Do you really need to spin up a web server for that? I’d rather create a split terminal and run my CLIs in one window while my TUI runs in another. Some of this boils down to preference, but when it comes to internal developer tooling, CLIs and TUIs are a kickass pair.</li>
+</ul></li>
+</ul>
 </section>
-<section id="our-first-r-based-asset-the-r-side" class="level2">
-<h2 class="anchored" data-anchor-id="our-first-r-based-asset-the-r-side">Our first R-based asset: the R side</h2>
-<p>Our R asset is going to insert records from <code>mtcars</code> into a Postgres table. Here’s the code.</p>
+<section id="how-do-tuis-work" class="level2">
+<h2 class="anchored" data-anchor-id="how-do-tuis-work">How do TUIs work?</h2>
+<p>TUIs work via dual buffers and an event loop. The dual buffers operate like the DOM in a web app. One buffer is what’s presented to the user in the terminal, and the second buffer contains all the changes resulting from interacting with the app. As interactions mutate the behind buffer, the event loop periodically determines what parts of the front buffer need to be re-rendered.</p>
+<p>With all this diff-ing and state management, you might wonder about the package’s performance. TUIs made with <code>{rtui}</code> are responsive and snappy. There’s two reasons for this. One is the use of dual buffers. Without dual buffers, we would need to redraw the whole UI every time the user interacted with the app. With dual buffers, we only update the parts of the app that changed, eliminating a lot of wasteful computation. Another reason is that <code>{rtui}</code> uses Rust under the hood for the computationally intensive parts; compiled code excels here. The R code wraps these lower level routines into a higher level, expressive API with sensible defaults that minimizes the effort spent thinking <em>how</em> to build something so you can focus on the what.</p>
+</section>
+<section id="a-worked-example" class="level2">
+<h2 class="anchored" data-anchor-id="a-worked-example">A worked example</h2>
+<p>If you’ve made it this far, you’re probably on the TUI train now and want to know how to make one with <code>{rtui}</code>. Below is the source code for a simple “Hello World” app. We’ll walk through the code step by step, explaining key parts of the API along the way.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dagsterpipes)</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(DBI)</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>ctx <span class="ot">&lt;-</span> <span class="fu">open_dagster_pipes</span>()</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">tryCatch</span>(</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  {</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Starting ETL process."</span>)</span>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rtui)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>ui <span class="ot">&lt;-</span> <span class="fu">rt_border</span>(</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rt_text</span>(<span class="st">"Hello from rtui!</span><span class="sc">\n\n</span><span class="st">Press any key to exit."</span>,</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>          <span class="at">fg =</span> COLOR<span class="sc">$</span>GREEN, <span class="at">align =</span> <span class="st">"center"</span>),</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">title =</span> <span class="st">"Hello World"</span>,</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">border_style =</span> BORDER_ROUNDED</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    con <span class="ot">&lt;-</span> <span class="fu">dbConnect</span>(</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>      <span class="at">drv =</span> RPostgres<span class="sc">::</span><span class="fu">Postgres</span>(),</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>      <span class="at">dbname =</span> ctx<span class="sc">$</span><span class="fu">get_extra</span>(<span class="st">"DB_NAME"</span>),</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>      <span class="at">host =</span> ctx<span class="sc">$</span><span class="fu">get_extra</span>(<span class="st">"DB_HOST"</span>),</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>      <span class="at">port =</span> ctx<span class="sc">$</span><span class="fu">get_extra</span>(<span class="st">"DB_PORT"</span>) <span class="sc">|&gt;</span> <span class="fu">as.integer</span>(),</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>      <span class="at">user =</span> ctx<span class="sc">$</span><span class="fu">get_extra</span>(<span class="st">"DB_USER"</span>),</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>      <span class="at">password =</span> ctx<span class="sc">$</span><span class="fu">get_extra</span>(<span class="st">"DB_PASSWORD"</span>)</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Writing `mtcars` to DB."</span>)</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">dbWriteTable</span>(con, <span class="at">name =</span> <span class="st">"mtcars"</span>, <span class="at">value =</span> mtcars, <span class="at">overwrite =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"Finished table write."</span>)</span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">report_asset_materialization</span>(</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>      <span class="at">metadata =</span> <span class="fu">list</span>(</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>        <span class="at">row_count =</span> <span class="fu">pipes_metadata_value</span>(<span class="fu">nrow</span>(mtcars), <span class="st">"int"</span>)</span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>      )</span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">log</span>(<span class="st">"ETL process completed."</span>)</span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">close</span>()</span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  },</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">error =</span> <span class="cf">function</span>(e) {</span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    ctx<span class="sc">$</span><span class="fu">close</span>(<span class="at">exception =</span> e)</span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="fu">stop</span>(e)</span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>on_event <span class="ot">&lt;-</span> <span class="cf">function</span>(event, state) {</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (event<span class="sc">$</span>type <span class="sc">==</span> EVENT_KEY) <span class="fu">rt_quit</span>() <span class="cf">else</span> state</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">rt_run_app</span>(<span class="fu">rt_app</span>(ui, <span class="at">on_event =</span> on_event))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>The important thing here is the <code>ctx</code> variable we get from calling <code>open_dagster_pipes</code>. Short for “context”, <code>ctx</code> is where Dagster shoves information related to the run like partition keys and other environment variables. On the R-side, we can log information about the run that gets sent back to Dagster and shown inside of the run details page. ## Our first R-based asset: the Python side</p>
-<p>There are two places in our Python code we need to change to make this work. First, we create the <code>PipesSubprocessClient</code> resource in <code>definitions.py</code> (see code below).</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dagster <span class="im">import</span> Definitions, load_assets_from_modules, PipesSubprocessClient</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dagsterdemo <span class="im">import</span> assets  <span class="co"># noqa: TID252</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>all_assets <span class="op">=</span> load_assets_from_modules([assets])</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>defs <span class="op">=</span> Definitions(</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    assets<span class="op">=</span>all_assets,</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    resources<span class="op">=</span>{</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="st">"pipes_subprocess_client"</span>: PipesSubprocessClient()</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>Once this resource is registered in Dagster, we can inject it into any of our Dagster asset functions. The next place we need to make changes is in <code>assets.py</code> as shown below.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> dagster <span class="im">as</span> dg</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>R_ETL_SCRIPT <span class="op">=</span> Path(<span class="va">__file__</span>).parent.joinpath(<span class="st">"etl.R"</span>)</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="at">@dg.asset</span>()</span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> r_asset(context: dg.AssetExecutionContext, pipes_subprocess_client: dg.PipesSubprocessClient):</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> pipes_subprocess_client.run(</span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        command<span class="op">=</span>[<span class="st">"Rscript"</span>, <span class="bu">str</span>(R_ETL_SCRIPT)],</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        context<span class="op">=</span>context,</span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        extras<span class="op">=</span>{</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_HOST"</span>: os.getenv(<span class="st">"DB_HOST"</span>),</span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_PORT"</span>: os.getenv(<span class="st">"DB_PORT"</span>),</span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_NAME"</span>: os.getenv(<span class="st">"DB_NAME"</span>),</span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_USER"</span>: os.getenv(<span class="st">"DB_USER"</span>),</span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>            <span class="st">"DB_PASSWORD"</span>: os.getenv(<span class="st">"DB_PASSWORD"</span>)</span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        }</span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    ).get_materialize_result()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>The most important thing to note here is we’re passing that <code>PipesSubprocessClient</code> instance we defined earlier. You might wonder two things about this code. One is whether it’s a coincidence that the argument name for the <code>PipesSubprocessClient</code> in <code>r_asset</code> matches the <code>dict</code> key we gave the <code>PipesSubprocessClient</code> in <code>definitions.py</code>. This isn’t a coincidence: Dagster resolves resources by name, so any resource you want to inject into an asset needs the argument name to match. Another thing you might wonder is why we need this resource when we could just use Python’s <code>subprocess</code> module. The primary difference is that <code>PipesSubprocessClient</code> doesn’t just run the R script: it creates and maintains the message sink where all communication between R and Dagster occurs. Part of this communication involves injecting all of the values in the <code>context</code> variable so that R is aware of things like partitions, environment variables, and so on. You don’t get all of that with a simple call to <code>subprocess.run()</code>. The <code>PipesSubprocessClient</code> also has convenience methods like <code>get_materialize_result</code> for extracting important information from the message sink, in this case the message created by the <code>report_asset_materialization</code> method on the R side.</p>
+<p>First, we create our UI. In <code>{rtui}</code>, we specify what the UI is upfront; in this way, it’s similar to how <code>{shiny}</code> works. When the app starts, the app will walk the whole tree of widgets and render them to the screen. All exported functions in the package are prefixed with <code>rt_*</code>. The package has several enums for things like color (e.g.&nbsp;<code>COLOR</code>) we provide for styling elements of your app. Once we have a UI defined, we need to define a function <code>on_event</code> that tells your app how to respond to user events. This app listens for any key press event (<code>event$type == EVENT_KEY</code>), and when one occurs, the app exits. Once we have our UI and the logic for updating the app, we pass both to <code>rt_app</code>, which creates an <code>App</code> instance. You then pass that app instance to <code>rt_run_app</code> to start the app in your terminal.</p>
 </section>
 <section id="conclusion" class="level2">
 <h2 class="anchored" data-anchor-id="conclusion">Conclusion</h2>
-<p>The <code>{dagsterpipes}</code> package makes it possible for teams working with R or Python to leverage the same powerful orchestration technology. For example, suppose an ML group uses <code>{tidymodels}</code> to train a GAM model. They want to automate retraining the model when prediction accuracy drops below a certain threshold. With <code>{dagsterpipes}</code>, the team can create a Dagster asset for the GAM model that triggers retraining when an upstream evaluation determines accuracy is too low. The team gets automated retraining with minimal refactoring.</p>
-<p>This package aims to be a complete implementation of the Pipes Protocol; if you find part of it is lacking, please submit an issue or a PR on Github. The package is only available from GitHub for now; installation instructions can be found <a href="https://joekirincic.github.io/dagsterpipes/">here</a>. I plan on submitting the package to CRAN in the near future.</p>
+<p>Go forth and take <code>{rtui}</code> for a spin and let me know what you think.</p>
 
 
 </section>
