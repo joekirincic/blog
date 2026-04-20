@@ -201,6 +201,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="thumbnail.jpg" class="img-fluid quarto-figure quarto-figure-center figure-img"></p>
+</figure>
+</div>
 <section id="introduction" class="level2">
 <h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
 <p>Recently at work we’ve had to build out a reporting solution for therapists that summarizes important patient treatment information in a nice looking PDF. If you’ve ever tried building a feature like this before, you know how painful generating PDFs can be. While researching technologies to use for this, I came across the term “burst reporting” to describe our use case. I never heard the term “burst reporting” before, and it got me thinking, how hard would it be to create a burst reporting app with R? And so this post was born. First, we’re going to cover creating and styling the PDF using Quarto and Typst; then, we’re going to create an R script that implements the burst reporting functionality. If you want to follow along, a full working example can be found at the GitHub repo <a href="https://github.com/joekirincic/burst-reporting">here</a>.</p>
@@ -470,7 +475,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="conclusion" class="level2">
 <h2 class="anchored" data-anchor-id="conclusion">Conclusion</h2>
 <p>As it turns out, we can build a decent burst reporting application using open-source tools. Typst, Quarto, and R work very well together, allowing us to create reports that are not only visually appealing but efficient to build. We were able to make some improvements, but this application is still pretty basic; there are plenty of opportunities for further enhancement. We could convert this from a script to a REST API using <code>{plumber2}</code> so PDFs could be requested by other web services on demand. We could process more documents even faster by making a Docker image for the application and using a service like AWS Batch to produce PDFs in bulk on a regular schedule. But as exciting as this might be to think about, there’s a question of whether or not we should. Answering that question is beyond the scope of this post, so we won’t get into that here, but my gut tells me it’s worth considering. Maybe we’ll vet this consideration in a future post.</p>
-<p>If anyone has ever successfully used Quarto for reporting solutions, please let me know. I’d like to learn more about how you’ve made Quarto work at scale within in your organization.</p>
+<p>If anyone has ever successfully used Quarto for reporting solutions, please let me know. I’d like to learn more about how you’ve made Quarto work at scale within your organization.</p>
 
 
 </section>
