@@ -1,1 +1,5 @@
 /.quarto/
+.DS_Store
+/index_files/
+/posts/**/index_files/
+/_site/

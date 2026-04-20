@@ -1,5 +1,9 @@
 # Quarto profile for rendering draft posts
 # Usage: quarto render --profile drafts
 
+execute:
+  freeze: auto
+  
 website:
   draft-mode: visible
+  
