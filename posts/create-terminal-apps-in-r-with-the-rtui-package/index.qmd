@@ -4,8 +4,6 @@ description: "Learn how to create TUIs using the `{rtui}` package."
 author: "Joe Kirincic"
 date: "2026-04-19"
 categories: [R]
-image: ""
-image-alt: ""
 draft: false
 ---
 

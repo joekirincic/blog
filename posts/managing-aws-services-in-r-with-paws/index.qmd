@@ -4,8 +4,6 @@ description: "See how the R package `{paws}` can help you automate AWS workflows
 author: "Joe Kirincic"
 date: "2025-12-22"
 categories: [R,aws]
-image: ""
-image-alt: ""
 draft: true
 ---
 

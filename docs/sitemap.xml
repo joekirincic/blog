@@ -14,23 +14,27 @@
   </url>
   <url>
     <loc>https://joekirincic.com/posts/create-terminal-apps-in-r-with-the-rtui-package/index.html</loc>
-    <lastmod>2026-04-20T02:33:53.826Z</lastmod>
+    <lastmod>2026-05-04T03:58:57.860Z</lastmod>
   </url>
   <url>
     <loc>https://joekirincic.com/posts/burst-reporting-on-a-budget/index.html</loc>
     <lastmod>2026-02-07T21:16:31.812Z</lastmod>
   </url>
   <url>
-    <loc>https://joekirincic.com/posts/managing-aws-services-in-r-with-paws/index.html</loc>
-    <lastmod>2026-01-05T12:35:34.607Z</lastmod>
+    <loc>https://joekirincic.com/posts/performance-optimization-for-plumber-apis-long-running-jobs/index.html</loc>
+    <lastmod>2025-12-22T01:41:58.122Z</lastmod>
   </url>
   <url>
     <loc>https://joekirincic.com/posts/managing-gnarly-nested-data-with-purrr-modify-tree/index.html</loc>
     <lastmod>2026-01-05T12:35:34.608Z</lastmod>
   </url>
   <url>
-    <loc>https://joekirincic.com/posts/performance-optimization-for-plumber-apis-long-running-jobs/index.html</loc>
-    <lastmod>2025-12-22T01:41:58.122Z</lastmod>
+    <loc>https://joekirincic.com/posts/managing-aws-services-in-r-with-paws/index.html</loc>
+    <lastmod>2026-05-04T03:59:02.455Z</lastmod>
+  </url>
+  <url>
+    <loc>https://joekirincic.com/posts/use-r-to-unit-test-your-sql-with-querytest/index.html</loc>
+    <lastmod>2026-05-04T03:58:51.479Z</lastmod>
   </url>
   <url>
     <loc>https://joekirincic.com/posts/welcome/index.html</loc>
@@ -46,6 +50,6 @@
   </url>
   <url>
     <loc>https://joekirincic.com/index.html</loc>
-    <lastmod>2026-04-20T02:33:53.826Z</lastmod>
+    <lastmod>2026-05-04T03:54:41.647Z</lastmod>
   </url>
 </urlset>

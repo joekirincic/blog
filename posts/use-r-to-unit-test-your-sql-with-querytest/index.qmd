@@ -4,8 +4,6 @@ description: "Learn about the new R package for unit testing SQL and {dbplyr} qu
 author: "Your Name"
 date: "2026-05-04"
 categories: [R,databases]
-image: ""
-image-alt: ""
 draft: true
 ---
 
