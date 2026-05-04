@@ -1,0 +1,30 @@
+---
+title: "Use R to unit test your SQL with `{querytest}`"
+description: "Learn about the new R package for unit testing SQL and {dbplyr} queries, no production data required."
+author: "Your Name"
+date: "2026-05-04"
+categories: [R,databases]
+image: ""
+image-alt: ""
+draft: true
+---
+
+## Introduction
+
+I write a lot of SQL, like, so much SQL. I love the stuff: I think it's a great solution to a lot of issues data folks face in their day-to-day. But one thing SQL lacks that drives me absolutely bonkers is it's lack of testability. And don't come at me about projects like pgTAP. These projects exist, and they work for some, but let's be real about the fact that these haven't established themselves in the greater data engineering and data science communities. Enough time passed that I got sufficiently annoyed by the lack of tooling, so I decided to create a little something to help improve the situation. Enter `{querytest}`, my new R package for unit testing SQL queries. In this post, I'll cover how `{querytest}` helps us, as well as some design decisions I made along the way.
+
+## A brief intro to `{querytest}`
+
+BLAH.
+
+## The big idea: use a smart guy's great idea
+
+BLAH.
+
+## Choosing `sqlglot`, a Python package, as a dependency for an R package
+
+BLAH.
+
+## Conclusion
+
+BLAH.
