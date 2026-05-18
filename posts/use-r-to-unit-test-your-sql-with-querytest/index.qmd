@@ -13,7 +13,7 @@ I write a lot of SQL, like, so much SQL. I love the stuff: I think it's a great 
 
 ## A brief intro to `{querytest}`
 
-BLAH.
+You pass a collection of mocked table data and a SQL query to `{querytest}`, and it inlines the mocked table data as CTEs, and replaces table references in your original SQL with references to those CTEs.
 
 ## The big idea: use a smart guy's great idea
 
